@@ -1,0 +1,12 @@
+{
+    "resolution": 0.7,
+    "frameRate": 60,
+    "renderFrame": null,
+    "renderStart": null,
+    "renderEnd": null,
+    "renderCursor": true,
+    "cursorSize": 32,
+    "dataPath": "C:\\Users\\User\\Desktop\\recorder\\1694798253989",
+    "outputPath": "C:\\Users\\User\\Desktop\\recorder\\output",
+    "outputName": null
+}
