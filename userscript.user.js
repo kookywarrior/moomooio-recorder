@@ -8,20 +8,22 @@
 // @run-at       document-start
 // @grant        unsafeWindow
 // @license      MIT
-// @version      0.1
+// @version      0.2
 // @namespace    https://greasyfork.org/users/999838
 // ==/UserScript==
 
+const PORT = 6789
 ;(() => {
 	unsafeWindow.recorder = true
+
+	Event.prototype.stopPropagation = () => {
+		return
+	}
 
 	const recordButton = document.createElement("div")
 	recordButton.id = "recordButton"
 	recordButton.className = "uiElement gameButton"
 	recordButton.innerHTML = `<i class="material-icons" style="font-size:40px;vertical-align:middle">&#xe837;</i>`
-
-	const fakeEle = document.createElement("div")
-	fakeEle.id = "fakeEle"
 
 	var items = {}
 	items.groups = [
@@ -1543,7 +1545,8 @@
 	}
 
 	var leaderboardData = [],
-		fontHeight = [],
+		fontHeight = {},
+		chatBoxWidth = 0,
 		itemInfoData = {},
 		allianceNotificationName,
 		hoverData = ["none"],
@@ -1977,7 +1980,7 @@
 		markerCountdown = false
 	unsafeWindow.sendToLocal = async (packet, data) => {
 		if (websocketReady) {
-			ws.send(new Uint8Array(Array.from(msgpack.encode([packet, data]))))
+			ws.send(JSON.stringify([packet, data]))
 		}
 	}
 
@@ -2000,7 +2003,7 @@
 			}, 3000)
 			return
 		}
-		ws = new WebSocket("ws://localhost:8960")
+		ws = new WebSocket("ws://localhost:" + PORT)
 		ws.onopen = () => {
 			websocketReady = true
 			errorCountdown = false
@@ -2036,6 +2039,8 @@
 						chatBox: document.getElementById("chatBox").value,
 						allianceInput: document.getElementById("allianceInput") ? document.getElementById("allianceInput").value : ""
 					},
+					chatBoxLeft: document.getElementById("chatBox").scrollLeft,
+					chatBoxWidth,
 					itemInfoData,
 					allianceNotificationName,
 					hoverData,
@@ -2123,9 +2128,9 @@
 	var lastMouse = { x: 0, y: 0 }
 
 	document.addEventListener("DOMContentLoaded", () => {
-		function defineFontHeight() {
-			fontHeight = []
-			const array = [31, 22, 26, 24, 20, 30, 170, 45]
+		function defineElementAndFontSize() {
+			fontHeight = {}
+			const array = [31, 22, 26, 24, 20, 30, 170, 45, 25]
 
 			const tmpDiv = document.createElement("div")
 			tmpDiv.innerHTML = "a"
@@ -2133,14 +2138,20 @@
 			document.body.appendChild(tmpDiv)
 			for (let i = 0; i < array.length; i++) {
 				tmpDiv.style.fontSize = array[i] + "px"
-				fontHeight.push(tmpDiv.offsetHeight)
+				fontHeight[array[i]] = tmpDiv.offsetHeight
 			}
 			tmpDiv.remove()
+
+			const tmpInput = document.createElement("input")
+			tmpInput.style = "position: absolute; top: -500px; left: 0px; font-family: Hammersmith One; font-size: 20px; border: 0; padding: 0; margin: 0;"
+			document.body.appendChild(tmpInput)
+			chatBoxWidth = tmpInput.clientWidth
+			tmpInput.remove()
 		}
-		defineFontHeight()
+		defineElementAndFontSize()
 
 		unsafeWindow.addEventListener("resize", () => {
-			defineFontHeight()
+			defineElementAndFontSize()
 			if (websocketReady) {
 				unsafeWindow.recordStop()
 			}
@@ -2159,17 +2170,14 @@
 				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "markMap", data: [player.mapMarker.x, player.mapMarker.y] }])
 			}
 		})
-		document.getElementById("gameCanvas").addEventListener("mousemove", (e) => {
-			canvasMouse = {
-				x: e.clientX,
-				y: e.clientY
+
+		unsafeWindow.addEventListener("mousemove", (e) => {
+			if (e.target.id === "gameCanvas") {
+				canvasMouse = {
+					x: e.clientX,
+					y: e.clientY
+				}
 			}
-			mouse = {
-				x: e.clientX,
-				y: e.clientY
-			}
-		})
-		document.addEventListener("mousemove", (e) => {
 			mouse = {
 				x: e.clientX,
 				y: e.clientY
@@ -2187,16 +2195,6 @@
                     left: 60px;
                 }
             }
-			#fakeEle {
-				position: absolute;
-				top: 0;
-				left: -99999px;
-				overflow: hidden;
-				visibility: hidden;
-				white-space: nowrap;
-				height: 0;
-				font-size: 20px;
-			}
 			#actionBar {
 				font-size: 0;
 				bottom: 20px;
@@ -2223,7 +2221,6 @@
 				])
 
 				if (event.target.id === "chatHolder" && event.target.style.display !== "block") {
-					setWidth()
 					unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "changeInputText", data: ["chatBox", ""] }])
 				}
 			})
@@ -2275,19 +2272,10 @@
 		observerChildList.observe(document.getElementById("noticationDisplay"), { childList: true })
 		observerChildList.observe(document.getElementById("loadingText"), { childList: true })
 
-		document.body.appendChild(fakeEle)
-		function setWidth() {
-			const string = document.getElementById("chatBox").value || document.getElementById("chatBox").getAttribute("placeholder") || ""
-			fakeEle.innerHTML = string.replace(/\s/g, "&" + "nbsp;")
-			document.getElementById("chatBox").style.width = unsafeWindow.getComputedStyle(fakeEle).width
-		}
-		setWidth()
-
 		document.addEventListener("input", (event) => {
 			if (event.target?.id === "allianceInput") {
 				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "changeInputText", data: ["allianceInput", event.target.value] }])
 			} else if (event.target?.id === "chatBox") {
-				setWidth()
 				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "changeInputText", data: ["chatBox", event.target.value] }])
 			}
 		})
@@ -2300,7 +2288,7 @@
 				hoverData = [event.target.parentNode.classList.contains("allianceItem") ? "allianceItem" : "storeItem", event.target.parentNode.id]
 			} else if (event.target.classList.contains("storeTab")) {
 				hoverData = ["storeTab", event.target.innerText]
-			} else if (event.target.classList.contains("gameButton")) {
+			} else if (event.target.classList.contains("gameButton") && event.target.id !== "recordButton") {
 				hoverData = ["gameButton", event.target.id]
 			} else if (event.target.classList.contains("allianceButtonM")) {
 				hoverData = ["allianceButtonM"]
@@ -2317,6 +2305,10 @@
 				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "hoverChange", data: hoverData }])
 			}
 		})
+
+		document.getElementById("chatBox").addEventListener("scroll", () => {
+			unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "changeInputScroll", data: [document.getElementById("chatBox").scrollLeft] }])
+		})
 	})
 
 	var now,
@@ -2328,19 +2320,19 @@
 		lastUpdate = now
 		if (websocketReady) {
 			if (lastCanvasMouse.x !== canvasMouse.x) {
-				canvasMouse.x = lastCanvasMouse.x
+				lastCanvasMouse.x = canvasMouse.x
 				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "changeCanvasMouse", data: ["x", canvasMouse.x] }])
 			}
 			if (lastCanvasMouse.y !== canvasMouse.y) {
-				canvasMouse.y = lastCanvasMouse.y
+				lastCanvasMouse.y = canvasMouse.y
 				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "changeCanvasMouse", data: ["y", canvasMouse.y] }])
 			}
 			if (lastMouse.x !== mouse.x) {
-				mouse.x = lastMouse.x
+				lastMouse.x = mouse.x
 				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "changeMouse", data: ["x", mouse.x] }])
 			}
 			if (lastMouse.y !== mouse.y) {
-				mouse.y = lastMouse.y
+				lastMouse.y = mouse.y
 				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "changeMouse", data: ["y", mouse.y] }])
 			}
 		}
