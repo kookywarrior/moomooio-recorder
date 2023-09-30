@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Renderer</title>
+		<link href="https://fonts.googleapis.com/css?family=Hammersmith+One" rel="stylesheet" />
+		<script src="https://cdn.jsdelivr.net/npm/quicksettings@latest/quicksettings.min.js"></script>
+	</head>
+	<body>
+		<div id="dropZone">
+			<p>Drop file or click to upload</p>
+			<input type="file" accept=".json" id="dropInput" />
+		</div>
+
+		<div id="editorContainer">
+			<div id="topContainer">
+				<div id="canvasContainer">
+					<div id="loadScreen">Loading...</div>
+					<canvas id="mainCanvas"></canvas>
+				</div>
+				<div id="sidebarContainer">
+					<div id="previewContainer" style="display: block"></div>
+					<div id="elementContainer" style="display: none"></div>
+					<div id="visualContainer" style="display: none"></div>
+					<div id="exportContainer" style="display: none"></div>
+					<div id="exportingContainer" style="display: none"></div>
+				</div>
+			</div>
+			<div id="bottomContainer">
+				<div id="markerContainer"></div>
+				<div id="timelineContainer">
+					<div id="durationContainer">
+						<div id="durationTrack"></div>
+						<input type="range" id="timeline" value="0" min="0" max="100" />
+						<input class="durationInput" type="range" min="0" max="100" value="0" id="slider1" />
+						<input class="durationInput" type="range" min="0" max="100" value="100" id="slider2" />
+					</div>
+				</div>
+				<div id="buttonsContainer">
+					<div id="prevFrame" class="frameButton"></div>
+					<div id="playButton" class="paused">
+						<div class="left"></div>
+						<div class="right"></div>
+						<div class="triangle-1"></div>
+						<div class="triangle-2"></div>
+					</div>
+					<div id="nextFrame" class="frameButton"></div>
+				</div>
+			</div>
+		</div>
+
+		<script src="web.js"></script>
+		<link rel="stylesheet" href="web.css" />
+	</body>
+</html>
