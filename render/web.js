@@ -1520,8 +1520,8 @@ function videoFileReader() {
 		fileNAME = dropInput.files[0].name
 		resizeUI()
 		await preloadImages()
-		document.getElementById("dimension").innerText = `${Math.floor(DATA.start.screenWidth * exportDATA.RESOLUTION)} × ${Math.floor(
-			DATA.start.screenHeight * exportDATA.RESOLUTION
+		document.getElementById("dimension").innerText = `${Math.floor(DATA.info.screenWidth * exportDATA.RESOLUTION)} × ${Math.floor(
+			DATA.info.screenHeight * exportDATA.RESOLUTION
 		)}`
 
 		const maxValue = DATA.info.duration - (DATA.info.duration % previewDATA.FPS)
@@ -1555,17 +1555,27 @@ function videoFileReader() {
 
 function resizeUI() {
 	const containerRatio = (window.innerWidth - 250) / (window.innerHeight - 100)
-	const videoRatio = DATA.start.screenWidth / DATA.start.screenHeight
-	const width = containerRatio < videoRatio ? window.innerWidth - 250 : (DATA.start.screenWidth / DATA.start.screenHeight) * (window.innerHeight - 100)
-	const height = containerRatio < videoRatio ? (DATA.start.screenHeight / DATA.start.screenWidth) * (window.innerWidth - 250) : window.innerHeight - 100
+	const videoRatio = DATA.info.screenWidth / DATA.info.screenHeight
+	const width = containerRatio < videoRatio ? window.innerWidth - 250 : (DATA.info.screenWidth / DATA.info.screenHeight) * (window.innerHeight - 100)
+	const height = containerRatio < videoRatio ? (DATA.info.screenHeight / DATA.info.screenWidth) * (window.innerWidth - 250) : window.innerHeight - 100
 	mainCanvas.style.width = width + "px"
 	mainCanvas.style.height = height + "px"
 }
 
 async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, element) {
-	const startData = { ...DATA.start }
+	const { duration, count, screenWidth, screenHeight, breaks } = DATA.info
+	let tmpSTARTDATA = {}
+	for (const key in breaks) {
+		if ((renderFrame != null && parseInt(key) <= renderFrame) || (renderStart != null && parseInt(key) <= renderStart)) {
+			tmpSTARTDATA.time = key
+			tmpSTARTDATA.name = breaks[key].name
+			tmpSTARTDATA.counter = breaks[key].count
+		} else {
+			break
+		}
+	}
+	const startData = { ...DATA.data[tmpSTARTDATA.name] }
 	const datas = DATA.data
-	const { duration, count, startTime } = DATA.info
 
 	var hats = store.hats,
 		accessories = store.accessories
@@ -1576,7 +1586,6 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	var descriptionWidth, descriptionHeight
 	var upgradeBarWidth, upgradeBarHeight
 	var disconnectHeight
-	var screenWidth, screenHeight
 	var inGame = false,
 		disconnect = false
 
@@ -2120,7 +2129,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	function removePlayer(id) {
 		for (var i = 0; i < players.length; i++) {
 			if (players[i].id == id) {
-				players.splice(i, 1)
+				players.splice(i--, 1)
 				break
 			}
 		}
@@ -2294,7 +2303,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	function killObject(sid) {
 		for (var i = 0; i < gameObjects.length; ++i) {
 			if (gameObjects[i].sid == sid) {
-				gameObjects.splice(i, 1)
+				gameObjects.splice(i--, 1)
 				break
 			}
 		}
@@ -2303,7 +2312,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	function killObjects(sid) {
 		for (var i = 0; i < gameObjects.length; ++i) {
 			if (gameObjects[i].owner && gameObjects[i].owner.sid == sid) {
-				gameObjects.splice(i, 1)
+				gameObjects.splice(i--, 1)
 			}
 		}
 	}
@@ -2376,7 +2385,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	function remProjectile(sid, range) {
 		for (var i = 0; i < projectiles.length; ++i) {
 			if (projectiles[i].sid == sid) {
-				projectiles.splice(i, 1)
+				projectiles.splice(i--, 1)
 			}
 		}
 	}
@@ -2584,13 +2593,12 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		chatBoxLeft,
 		chatBoxWidth
 
-	let updateCounter = 1
 	async function updateGame(time, render) {
 		elementContext.clearRect(0, 0, screenWidth, screenHeight)
 		now = time
 		delta = now - lastUpdate
 
-		for (let n = updateCounter; n < count; n++) {
+		for (let n = tmpSTARTDATA.counter; n < count; n++) {
 			const element = datas[n]
 
 			let wannaReturn = true
@@ -2611,7 +2619,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 					events[type](...data)
 				}
 			}
-			updateCounter++
+			tmpSTARTDATA.counter++
 		}
 		lastUpdate = now
 
@@ -2794,18 +2802,18 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 			}
 			if (!disconnect && time - deathTime < config.deathFadeout && render) {
 				elementContext.font = `${Math.min(Math.round(deathTextScale), 120)}px Hammersmith One`
-				elementContext.textBaseline = "middle"
+				elementContext.textBaseline = "bottom"
 				elementContext.textAlign = "center"
 				const metrics = elementContext.measureText("YOU DIED")
 				elementContext.fillStyle = "rgba(0, 0, 0, 0.25)"
 				elementContext.fillRect(
 					0,
-					screenHeight / 2 - (metrics.emHeightAscent + metrics.emHeightDescent) / 2,
+					screenHeight / 2 - (metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent) / 2,
 					screenWidth,
-					metrics.emHeightAscent + metrics.emHeightDescent
+					metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent
 				)
 				elementContext.fillStyle = "#fff"
-				elementContext.fillText("YOU DIED", screenWidth / 2, screenHeight / 2)
+				elementContext.fillText("YOU DIED", screenWidth / 2, screenHeight / 2 + metrics.fontBoundingBoxAscent / 2)
 			}
 		}
 
@@ -3774,8 +3782,6 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	}
 
 	// console.log("Setting Up...")
-	screenWidth = startData.screenWidth
-	screenHeight = startData.screenHeight
 	inGame = startData.inGame
 	disconnect = startData.disconnect
 	playerSID = startData.playerSID
@@ -3882,37 +3888,24 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 
 	resizeCanvas(mainCanvas, canvasWidth, canvasHeight)
 
-	const frameStop = renderFrame != null ? Math.floor((renderFrame / 1000) * frameRate) : null
-	const frameStart = renderStart != null ? Math.floor((renderStart / 1000) * frameRate) : null
-	const frameCount = Math.floor((duration / 1000) * frameRate)
-
-	if (frameCount <= 0) {
-		console.log("Video length too short!")
-		return
-	}
-
-	for (let i = 0; i < frameCount; i++) {
-		const time = i / frameRate
-		const millisecTime = Math.floor(time * 1000)
-
-		if (frameStop == null) {
-			if (frameStart == null || frameStart <= i) {
-				break
-			} else {
-				updateGame(millisecTime, false)
-				// console.log(`Updating canvas at ${Math.round(time * 10) / 10} seconds...`)
+	if (renderFrame != null) {
+		for (let i = frameRate; i > 0; i--) {
+			const num = renderFrame - i * Math.floor(1000 / frameRate)
+			if (num > parseInt(tmpSTARTDATA.time)) {
+				updateGame(num, false)
 			}
-		} else if (frameStop === i) {
-			updateGame(millisecTime, true)
-			// console.log(`Rendering frame ${i} at ${Math.round(time * 10) / 10} seconds...`)
-			break
-		} else {
-			updateGame(millisecTime, false)
-			// console.log(`Updating canvas at ${Math.round(time * 10) / 10} seconds...`)
 		}
+		updateGame(renderFrame, true)
 	}
 
 	if (renderStart != null) {
+		for (let i = frameRate; i > 0; i--) {
+			const num = renderStart - i * Math.floor(1000 / frameRate)
+			if (num > parseInt(tmpSTARTDATA.time)) {
+				updateGame(num, false)
+			}
+		}
+		updateGame(renderStart, true)
 		let fakeNow = Date.now()
 		let fakeLastUpdate = 0
 		function update() {
@@ -4476,10 +4469,10 @@ previewContainer.addButton("Element", () => {
 	document.getElementById("previewContainer").style.display = "none"
 	document.getElementById("elementContainer").style.display = "block"
 })
-previewContainer.addButton("Visual", () => {
-	document.getElementById("previewContainer").style.display = "none"
-	document.getElementById("visualContainer").style.display = "block"
-})
+// previewContainer.addButton("Visual", () => {
+// 	document.getElementById("previewContainer").style.display = "none"
+// 	document.getElementById("visualContainer").style.display = "block"
+// })
 previewContainer.addButton("Export", () => {
 	document.getElementById("previewContainer").style.display = "none"
 	document.getElementById("exportContainer").style.display = "block"
@@ -4618,8 +4611,8 @@ exportContainer.addRange("FPS", 1, 120, exportDATA.FPS, 1, (data) => {
 })
 exportContainer.addRange("Resolution", 0.05, 3, exportDATA.RESOLUTION, 0.05, (data) => {
 	exportDATA.RESOLUTION = data
-	document.getElementById("dimension").innerText = `${Math.floor(DATA.start.screenWidth * exportDATA.RESOLUTION)} × ${Math.floor(
-		DATA.start.screenHeight * exportDATA.RESOLUTION
+	document.getElementById("dimension").innerText = `${Math.floor(DATA.info.screenWidth * exportDATA.RESOLUTION)} × ${Math.floor(
+		DATA.info.screenHeight * exportDATA.RESOLUTION
 	)}`
 })
 exportContainer.addHTML("dimension", "<div id='dimension' style='text-align: center;'></div>")
