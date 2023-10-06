@@ -8,7 +8,7 @@
 // @run-at       document-start
 // @grant        unsafeWindow
 // @license      MIT
-// @version      0.2
+// @version      0.3
 // @namespace    https://greasyfork.org/users/999838
 // ==/UserScript==
 
@@ -1499,7 +1499,52 @@ const PORT = 6789
 		if (!init) {
 			init = true
 			this.addEventListener("message", (e) => {
-				if (!e.origin.includes("moomoo.io")) return
+				if (e === "addBreak") {
+					unsafeWindow.sendToLocal("addBreak", [
+						now.toString(),
+						{
+							inGame,
+							disconnect,
+							playerSID,
+							moofoll,
+							camX,
+							camY,
+							lockDir,
+							canvasMouse,
+							mouse,
+							minimapData,
+							leaderboardData,
+							fontHeight,
+							visibility: {
+								storeMenu: document.getElementById("storeMenu").style.display === "block",
+								allianceMenu: document.getElementById("allianceMenu").style.display === "block",
+								chatHolder: document.getElementById("chatHolder").style.display === "block",
+								noticationDisplay: document.getElementById("noticationDisplay").style.display === "block",
+								upgradeHolder: document.getElementById("upgradeHolder").style.display === "block"
+							},
+							inputText: {
+								chatBox: document.getElementById("chatBox").value,
+								allianceInput: document.getElementById("allianceInput") ? document.getElementById("allianceInput").value : ""
+							},
+							chatBoxLeft: document.getElementById("chatBox").scrollLeft,
+							chatBoxWidth,
+							itemInfoData,
+							allianceNotificationName,
+							hoverData,
+							storeData: unsafeWindow.updateStoreData,
+							allianceData: unsafeWindow.updateAllianceData,
+							players: JSON.parse(JSON.stringify(players)),
+							ais: JSON.parse(JSON.stringify(ais)),
+							gameObjects: JSON.parse(JSON.stringify(gameObjects)),
+							projectiles: JSON.parse(JSON.stringify(projectiles)),
+							texts: JSON.parse(JSON.stringify(texts)),
+							mapPings: JSON.parse(JSON.stringify(mapPings))
+						}
+					])
+					lastCanvasMouse = canvasMouse
+					lastMouse = mouse
+					return
+				}
 				try {
 					let data = new Uint8Array(e.data)
 					const parsed = msgpack.decode(data)
@@ -1596,7 +1641,7 @@ const PORT = 6789
 	function removePlayer(id) {
 		for (var i = 0; i < players.length; i++) {
 			if (players[i].id == id) {
-				players.splice(i, 1)
+				players.splice(i--, 1)
 				break
 			}
 		}
@@ -1765,7 +1810,7 @@ const PORT = 6789
 	function killObject(sid) {
 		for (var i = 0; i < gameObjects.length; ++i) {
 			if (gameObjects[i].sid == sid) {
-				gameObjects.splice(i, 1)
+				gameObjects.splice(i--, 1)
 				break
 			}
 		}
@@ -1774,7 +1819,7 @@ const PORT = 6789
 	function killObjects(sid) {
 		for (var i = 0; i < gameObjects.length; ++i) {
 			if (gameObjects[i].owner && gameObjects[i].owner.sid == sid) {
-				gameObjects.splice(i, 1)
+				gameObjects.splice(i--, 1)
 			}
 		}
 	}
@@ -1848,7 +1893,7 @@ const PORT = 6789
 	function remProjectile(sid, range) {
 		for (var i = 0; i < projectiles.length; ++i) {
 			if (projectiles[i].sid == sid) {
-				projectiles.splice(i, 1)
+				projectiles.splice(i--, 1)
 			}
 		}
 	}
@@ -2013,9 +2058,9 @@ const PORT = 6789
 
 			unsafeWindow.sendToLocal("recordStart", [
 				Date.now().toString(),
+				unsafeWindow.innerWidth,
+				unsafeWindow.innerHeight,
 				{
-					screenWidth: unsafeWindow.innerWidth,
-					screenHeight: unsafeWindow.innerHeight,
 					inGame,
 					disconnect,
 					playerSID,
@@ -2172,13 +2217,13 @@ const PORT = 6789
 		})
 
 		unsafeWindow.addEventListener("mousemove", (e) => {
-			if (e.target.id === "gameCanvas") {
-				canvasMouse = {
-					x: e.clientX,
-					y: e.clientY
-				}
-			}
 			mouse = {
+				x: e.clientX,
+				y: e.clientY
+			}
+		})
+		document.getElementById("gameCanvas").addEventListener("mousemove", (e) => {
+			canvasMouse = {
 				x: e.clientX,
 				y: e.clientY
 			}
@@ -2336,6 +2381,7 @@ const PORT = 6789
 				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "changeMouse", data: ["y", mouse.y] }])
 			}
 		}
+
 		updateGame()
 		unsafeWindow.requestAnimationFrame(doUpdate)
 	}
