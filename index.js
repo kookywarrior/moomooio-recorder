@@ -7,6 +7,7 @@ const { loadImage, registerFont, createCanvas } = require("canvas")
 const ffmpegStatic = require("ffmpeg-static")
 const ffmpeg = require("fluent-ffmpeg")
 const express = require("express")
+const { resolve } = require("dns")
 
 registerFont(path.join(__dirname, "render", "HammersmithOne.ttf"), { family: "Hammersmith One" })
 
@@ -1379,9 +1380,19 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 		return
 	}
 	const DATA = require(path.join(__dirname, "record", `${dataFileName}`))
-	const startData = DATA.start
+	const { duration, count, screenWidth, screenHeight, breaks } = DATA.info
+	let tmpSTARTDATA = {}
+	for (const key in breaks) {
+		if ((renderFrame != null && parseInt(key) <= renderFrame) || (renderStart != null && parseInt(key) <= renderStart)) {
+			tmpSTARTDATA.time = key
+			tmpSTARTDATA.name = breaks[key].name
+			tmpSTARTDATA.counter = breaks[key].count
+		} else {
+			break
+		}
+	}
+	const startData = { ...DATA.data[tmpSTARTDATA.name] }
 	const datas = DATA.data
-	const { duration, count, startTime } = DATA.info
 
 	var outlineColor = "#525252",
 		darkOutlineColor = "#3d3f42",
@@ -1395,7 +1406,6 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 	var descriptionWidth, descriptionHeight
 	var upgradeBarWidth, upgradeBarHeight
 	var disconnectHeight
-	var screenWidth, screenHeight
 	var inGame = false,
 		disconnect = false
 
@@ -1939,7 +1949,7 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 	function removePlayer(id) {
 		for (var i = 0; i < players.length; i++) {
 			if (players[i].id == id) {
-				players.splice(i, 1)
+				players.splice(i--, 1)
 				break
 			}
 		}
@@ -2113,7 +2123,7 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 	function killObject(sid) {
 		for (var i = 0; i < gameObjects.length; ++i) {
 			if (gameObjects[i].sid == sid) {
-				gameObjects.splice(i, 1)
+				gameObjects.splice(i--, 1)
 				break
 			}
 		}
@@ -2122,7 +2132,7 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 	function killObjects(sid) {
 		for (var i = 0; i < gameObjects.length; ++i) {
 			if (gameObjects[i].owner && gameObjects[i].owner.sid == sid) {
-				gameObjects.splice(i, 1)
+				gameObjects.splice(i--, 1)
 			}
 		}
 	}
@@ -2195,7 +2205,7 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 	function remProjectile(sid, range) {
 		for (var i = 0; i < projectiles.length; ++i) {
 			if (projectiles[i].sid == sid) {
-				projectiles.splice(i, 1)
+				projectiles.splice(i--, 1)
 			}
 		}
 	}
@@ -2411,12 +2421,11 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 		chatBoxLeft,
 		chatBoxWidth
 
-	let updateCounter = 1
 	async function updateGame(time, render) {
 		now = time
 		delta = now - lastUpdate
 
-		for (let n = updateCounter; n < count; n++) {
+		for (let n = tmpSTARTDATA.counter; n < count; n++) {
 			const element = datas[n]
 
 			let wannaReturn = true
@@ -2437,7 +2446,7 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 					events[type](...data)
 				}
 			}
-			updateCounter++
+			tmpSTARTDATA.counter++
 		}
 		lastUpdate = now
 
@@ -4080,8 +4089,6 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 	await preloadImages()
 
 	// console.log("Setting Up...")
-	screenWidth = startData.screenWidth
-	screenHeight = startData.screenHeight
 	inGame = startData.inGame
 	disconnect = startData.disconnect
 	playerSID = startData.playerSID
@@ -4203,50 +4210,57 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
-	var tmpDate = Date.now()
-	const frameStop = renderFrame != null ? Math.floor((renderFrame / 1000) * frameRate) : null
-	const frameStart = renderStart != null ? Math.floor((renderStart / 1000) * frameRate) : null
-	const frameEnd = renderEnd != null ? Math.floor((renderEnd / 1000) * frameRate) : null
-	let i2 = 0
 
 	if (ws.readyState !== 1) {
 		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
-	// console.log(`Creating frame(s)...`)
-	for (let i = 0; i < frameCount; i++) {
-		if (ws.readyState !== 1) {
-			break
-		}
-		const time = i / frameRate
-		const millisecTime = Math.floor(time * 1000)
 
-		if (frameStop == null) {
-			if ((frameStart == null || frameStart <= i) && (frameEnd == null || i <= frameEnd)) {
-				updateGame(millisecTime, true)
-				// console.log(`Rendering frame ${i} at ${Math.round(time * 10) / 10} seconds...`)
-				await fs.promises.writeFile(path.join(__dirname, "tmp", outputName, `frame-${i2}.png`), mainCanvas.toBuffer("image/png"))
-				i2++
+	if (renderFrame != null) {
+		for (let i = frameRate; i > 0; i--) {
+			const num = renderFrame - i * Math.floor(1000 / frameRate)
+			if (num > parseInt(tmpSTARTDATA.time)) {
+				updateGame(num, false)
 			}
-			if (frameEnd !== null && i === frameEnd) break
-		} else if (frameStop === i) {
-			updateGame(millisecTime, true)
-			// console.log(`Rendering frame ${i} at ${Math.round(time * 10) / 10} seconds...`)
-			await fs.promises.writeFile(path.join(__dirname, "output", `${outputName}_${Date.now()}.png`), mainCanvas.toBuffer("image/png"))
-			break
-		} else {
-			updateGame(millisecTime, false)
-			// console.log(`Updating canvas at ${Math.round(time * 10) / 10} seconds...`)
 		}
-		ws.send(JSON.stringify({ packet: "rendering", data: (i / frameCount) * 100 }))
+		updateGame(renderFrame, true)
+		ws.send(JSON.stringify({ packet: "rendering", data: 100 }))
+		await fs.promises.writeFile(path.join(__dirname, "output", `${outputName}_${Date.now()}.png`), mainCanvas.toBuffer("image/png"))
 	}
+
+	if (renderStart != null) {
+		for (let i = frameRate; i > 0; i--) {
+			const num = renderStart - i * Math.floor(1000 / frameRate)
+			if (num > parseInt(tmpSTARTDATA.time)) {
+				updateGame(num, false)
+			}
+		}
+		let millisecTime = renderStart
+		let i2 = 1
+		while (renderEnd > millisecTime) {
+			if (ws.readyState !== 1) {
+				break
+			}
+			updateGame(Math.floor(millisecTime), true)
+			ws.send(
+				JSON.stringify({
+					packet: "rendering",
+					data: ((millisecTime - renderStart) / (renderEnd - renderStart)) * 100
+				})
+			)
+			await fs.promises.writeFile(path.join(__dirname, "tmp", outputName, `frame-${i2}.png`), mainCanvas.toBuffer("image/png"))
+			i2++
+			millisecTime += 1000 / frameRate
+		}
+	}
+
 	if (ws.readyState !== 1) {
 		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 	ws.send(JSON.stringify({ packet: "rendering", data: 100 }))
 
-	if (renderFrame == null) {
+	if (renderStart != null) {
 		var totalTime,
 			lastProgressTime = -1
 		ffmpeg.setFfmpegPath(ffmpegStatic)
@@ -4287,7 +4301,6 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 		})
 	}
 
-	// console.log("Total time taken: " + (Date.now() - tmpDate) + "ms")
 	ws.close()
 	await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 }
@@ -4302,7 +4315,12 @@ const RECORDER = {
 	lastDate: {},
 	start: {},
 	count: {},
-	marker: [],
+	breakCount: {},
+	breaks: {},
+	marker: {},
+	screenWidth: {},
+	screenHeight: {},
+	interval: {},
 	increaseNumber: 0
 }
 
@@ -4313,9 +4331,14 @@ server.on("connection", async (conn) => {
 	}
 
 	const sid = RECORDER.increaseNumber
-	RECORDER.start[sid] = null
+	RECORDER.start[sid] = false
 	RECORDER.count[sid] = 1
+	RECORDER.breakCount[sid] = 1
+	RECORDER.breaks[sid] = {}
 	RECORDER.marker[sid] = []
+	RECORDER.screenWidth[sid] = null
+	RECORDER.screenHeight[sid] = null
+	RECORDER.interval[sid] = null
 	RECORDER.increaseNumber++
 
 	conn.on("message", (x) => {
@@ -4329,8 +4352,24 @@ server.on("connection", async (conn) => {
 		} else if (packet === "recordStart") {
 			RECORDER.date[sid] = data[0]
 			RECORDER.lastDate[sid] = RECORDER.date[sid]
-			RECORDER.start[sid] = data[1]
+			RECORDER.start[sid] = true
 			RECORDER.count[sid] = 1
+			RECORDER.breakCount[sid] = 1
+			RECORDER.screenWidth[sid] = data[1]
+			RECORDER.screenHeight[sid] = data[2]
+			const filePath = path.join(__dirname, "record", `Recording_${RECORDER.date[sid]}.json`)
+			if (!fs.existsSync(filePath)) {
+				fs.writeFileSync(filePath, `{"data":{"break${RECORDER.breakCount[sid]}":${JSON.stringify(data[3])}`)
+			} else {
+				fs.appendFileSync(filePath, `,"break${RECORDER.breakCount[sid]}":${JSON.stringify(data[3])}`)
+			}
+			RECORDER.breaks[sid][0] = {
+				name: "break" + RECORDER.breakCount[sid],
+				count: RECORDER.count[sid]
+			}
+			RECORDER.interval[sid] = setInterval(() => {
+				conn.send("addBreak")
+			}, 60 * 1000 * 2)
 		} else if (packet === "addData") {
 			RECORDER.lastDate[sid] = data[0]
 			const filePath = path.join(__dirname, "record", `Recording_${RECORDER.date[sid]}.json`)
@@ -4342,26 +4381,47 @@ server.on("connection", async (conn) => {
 			RECORDER.count[sid]++
 		} else if (packet === "addMarker") {
 			RECORDER.marker[sid].push(parseInt(data[0]) - parseInt(RECORDER.date[sid]))
+		} else if (packet === "addBreak") {
+			RECORDER.lastDate[sid] = data[0]
+			RECORDER.breakCount[sid]++
+			const filePath = path.join(__dirname, "record", `Recording_${RECORDER.date[sid]}.json`)
+			if (!fs.existsSync(filePath)) {
+				fs.writeFileSync(filePath, `{"data":{"break${RECORDER.breakCount[sid]}":${JSON.stringify(data[1])}`)
+			} else {
+				fs.appendFileSync(filePath, `,"break${RECORDER.breakCount[sid]}":${JSON.stringify(data[1])}`)
+			}
+			RECORDER.breaks[sid][data[0] - RECORDER.date[sid]] = {
+				name: "break" + RECORDER.breakCount[sid],
+				count: RECORDER.count[sid]
+			}
 		}
 	})
 
 	conn.on("close", () => {
-		if (RECORDER.start[sid] != null) {
+		if (RECORDER.start[sid]) {
 			const data = {
 				startTime: RECORDER.date[sid],
 				duration: parseInt(RECORDER.lastDate[sid]) - parseInt(RECORDER.date[sid]),
 				count: RECORDER.count[sid],
-				marker: RECORDER.marker[sid]
+				marker: RECORDER.marker[sid],
+				breaks: RECORDER.breaks[sid],
+				screenWidth: RECORDER.screenWidth[sid],
+				screenHeight: RECORDER.screenHeight[sid]
 			}
-			fs.appendFileSync(
-				path.join(__dirname, "record", `Recording_${RECORDER.date[sid]}.json`),
-				`},"start":${JSON.stringify(RECORDER.start[sid])},"info":${JSON.stringify(data)}}`
-			)
+			fs.appendFileSync(path.join(__dirname, "record", `Recording_${RECORDER.date[sid]}.json`), `},"info":${JSON.stringify(data)}}`)
 			delete RECORDER.start[sid]
 			delete RECORDER.count[sid]
+			delete RECORDER.breakCount[sid]
+			delete RECORDER.breaks[sid]
 			delete RECORDER.marker[sid]
 			delete RECORDER.date[sid]
 			delete RECORDER.lastDate[sid]
+			delete RECORDER.screenWidth[sid]
+			delete RECORDER.screenHeight[sid]
+			if (RECORDER.interval[sid] != null) {
+				clearInterval(RECORDER.interval[sid])
+				delete RECORDER.interval[sid]
+			}
 		}
 	})
 })
