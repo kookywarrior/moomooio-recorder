@@ -2286,6 +2286,10 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 		renderStore()
 	}
 
+	function updatePosition(data) {
+		updatePositionData = data
+	}
+
 	function updateAlliance(team, allianceArray) {
 		allianceData = [team, allianceArray]
 		renderAlliance()
@@ -2387,7 +2391,8 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 		showItemInfo: showItemInfo,
 		notificationName: notificationName,
 		hoverChange: hoverChange,
-		disconnectEvent: disconnectEvent
+		disconnectEvent: disconnectEvent,
+		updatePosition: updatePosition
 	}
 
 	var gameCanvas, gameContext
@@ -2416,6 +2421,7 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 		hoverData = ["none"]
 	var allianceData = [],
 		storeData = [],
+		updatePositionData = [null, null, null, null],
 		visibility,
 		inputText,
 		chatBoxLeft,
@@ -2568,10 +2574,6 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 					elementContext.drawImage(descriptionCanvas, 20, 20)
 				}
 
-				if (visibility.storeMenu && element.SHOP) {
-					elementContext.drawImage(storeCanvas, screenWidth / 2 - storeWidth / 2, screenHeight / 2 - storeHeight / 2)
-				}
-
 				if (visibility.allianceMenu && element.CLAN) {
 					elementContext.drawImage(allianceCanvas, screenWidth / 2 - allianceWidth / 2, screenHeight / 2 - allianceHeight / 2)
 				}
@@ -2592,11 +2594,23 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 				}
 
 				if (visibility.upgradeHolder && player.upgradePoints > 0 && element.UPGRADEITEM) {
-					elementContext.drawImage(upgradeBarCanvas, screenWidth / 2 - upgradeBarWidth / 2, 10)
+					elementContext.drawImage(
+						upgradeBarCanvas,
+						updatePositionData[2] == null ? screenWidth / 2 - upgradeBarWidth / 2 : parseFloat(updatePositionData[2]) + 10 - upgradeBarWidth / 2,
+						updatePositionData[3] == null ? 10 : parseFloat(updatePositionData[3])
+					)
 					elementContext.font = "24px Hammersmith One"
 					elementContext.textAlign = "center"
 					elementContext.fillStyle = "#fff"
 					elementContext.fillText(`SELECT ITEMS (${player.upgradePoints})`, screenWidth / 2, 95 + fontHeight[24])
+				}
+
+				if (visibility.storeMenu && element.SHOP) {
+					elementContext.drawImage(
+						storeCanvas,
+						updatePositionData[0] == null ? screenWidth / 2 - storeWidth / 2 : parseFloat(updatePositionData[0]),
+						updatePositionData[1] == null ? screenHeight / 2 - storeHeight / 2 : parseFloat(updatePositionData[1])
+					)
 				}
 
 				if (visibility.noticationDisplay && allianceNotificationName && element.CLANNOTIFICATION) {
@@ -4104,6 +4118,7 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 	minimapData = startData.minimapData
 	fontHeight = { ...startData.fontHeight }
 	storeData = startData.storeData || []
+	updatePositionData = startData.updatePositionData || [null, null, null, null]
 	allianceData = startData.allianceData || []
 	visibility = { ...startData.visibility }
 	inputText = { ...startData.inputText }
