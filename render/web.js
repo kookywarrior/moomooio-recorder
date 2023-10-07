@@ -1391,7 +1391,8 @@ const elementDATA = {
 }
 const exportDATA = {
 	FPS: 60,
-	RESOLUTION: 1
+	RESOLUTION: 1,
+	SPEED: 1
 }
 
 const gameCanvas = document.createElement("canvas"),
@@ -2769,8 +2770,8 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 				if (visibility.upgradeHolder && player.upgradePoints > 0 && element.UPGRADEITEM) {
 					elementContext.drawImage(
 						upgradeBarCanvas,
-						updatePositionData[2] == null ? screenWidth / 2 - upgradeBarWidth / 2 : parseFloat(updatePositionData[2]) + 10 - upgradeBarWidth / 2,
-						updatePositionData[3] == null ? 10 : parseFloat(updatePositionData[3])
+						!updatePositionData[2] ? screenWidth / 2 - upgradeBarWidth / 2 : parseFloat(updatePositionData[2]) + 10 - upgradeBarWidth / 2,
+						!updatePositionData[3] ? 10 : parseFloat(updatePositionData[3])
 					)
 					elementContext.font = "24px Hammersmith One"
 					elementContext.textAlign = "center"
@@ -2781,8 +2782,8 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 				if (visibility.storeMenu && element.SHOP) {
 					elementContext.drawImage(
 						storeCanvas,
-						updatePositionData[0] == null ? screenWidth / 2 - storeWidth / 2 : parseFloat(updatePositionData[0]),
-						updatePositionData[1] == null ? screenHeight / 2 - storeHeight / 2 : parseFloat(updatePositionData[1])
+						!updatePositionData[0] ? screenWidth / 2 - storeWidth / 2 : parseFloat(updatePositionData[0]),
+						!updatePositionData[1] ? screenHeight / 2 - storeHeight / 2 : parseFloat(updatePositionData[1])
 					)
 				}
 
@@ -3410,7 +3411,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	}
 
 	function drawNamesAndIcons(tmpObj) {
-		var tmpText = (tmpObj.team ? "[" + tmpObj.team + "] " : "") + (tmpObj.name || "") //var w =
+		var tmpText = (tmpObj.team ? "[" + (tmpObj.team == "\u0000" ? "" : tmpObj.team) + "] " : "") + (tmpObj.name || "") //var w =
 		if (tmpText != "") {
 			gameContext.font = (tmpObj.nameScale || 30) + "px Hammersmith One"
 			gameContext.fillStyle = "#fff"
@@ -4459,7 +4460,7 @@ previewContainer.addRange("Resolution", 0.05, 3, previewDATA.RESOLUTION, 0.05, (
 previewContainer.addRange("Speed", 0.1, 2, previewDATA.SPEED, 0.1, (data) => {
 	previewDATA.SPEED = data
 	playPauseVideo(true)
-	renderToCanvas(previewDATA.RESOLUTION, previewDATA.FPS, prenderDATA.TIMELINE, null, elementDATA)
+	renderToCanvas(previewDATA.RESOLUTION, previewDATA.FPS, previewDATA.TIMELINE, null, elementDATA)
 })
 previewContainer.addBoolean("Marker", previewDATA.MARKER, (data) => {
 	previewDATA.MARKER = data
@@ -4632,6 +4633,9 @@ exportContainer.addRange("Resolution", 0.05, 3, exportDATA.RESOLUTION, 0.05, (da
 })
 exportContainer.addHTML("dimension", "<div id='dimension' style='text-align: center;'></div>")
 exportContainer.hideTitle("dimension")
+exportContainer.addRange("Speed", 0.1, 2, exportDATA.SPEED, 0.1, (data) => {
+	exportDATA.SPEED = data
+})
 exportContainer.addButton("Export Image", () => {
 	const OUTPUTNAME = Date.now()
 	const ws = new WebSocket("ws://localhost:" + PORT)
@@ -4742,7 +4746,11 @@ function updateExportingContainer() {
 		exportingContainer.addProgressBar("Rendering", 100, 0)
 		exportingContainer.addProgressBar("Converting", 100, 0)
 		document.getElementById("exportingContainer").style.display = "none"
+		window.onbeforeunload = null
 		return
+	}
+	window.onbeforeunload = () => {
+		return "Are you sure?"
 	}
 	document.querySelector(".qs_select").value = String(SELECTEDPROJECT)
 	exportingContainer.removeControl("Rendering")
