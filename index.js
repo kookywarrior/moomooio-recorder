@@ -1361,7 +1361,7 @@ const UTILS = {
 	}
 }
 
-async function startRender(resolution, frameRate, renderFrame, renderStart, renderEnd, dataFileName, outputName, element, ws) {
+async function startRender(resolution, frameRate, speed, renderFrame, renderStart, renderEnd, dataFileName, outputName, element, ws) {
 	if (fs.existsSync(path.join(__dirname, "tmp", outputName))) {
 		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 	}
@@ -2596,8 +2596,8 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 				if (visibility.upgradeHolder && player.upgradePoints > 0 && element.UPGRADEITEM) {
 					elementContext.drawImage(
 						upgradeBarCanvas,
-						updatePositionData[2] == null ? screenWidth / 2 - upgradeBarWidth / 2 : parseFloat(updatePositionData[2]) + 10 - upgradeBarWidth / 2,
-						updatePositionData[3] == null ? 10 : parseFloat(updatePositionData[3])
+						!updatePositionData[2] ? screenWidth / 2 - upgradeBarWidth / 2 : parseFloat(updatePositionData[2]) + 10 - upgradeBarWidth / 2,
+						!updatePositionData[3] ? 10 : parseFloat(updatePositionData[3])
 					)
 					elementContext.font = "24px Hammersmith One"
 					elementContext.textAlign = "center"
@@ -2608,8 +2608,8 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 				if (visibility.storeMenu && element.SHOP) {
 					elementContext.drawImage(
 						storeCanvas,
-						updatePositionData[0] == null ? screenWidth / 2 - storeWidth / 2 : parseFloat(updatePositionData[0]),
-						updatePositionData[1] == null ? screenHeight / 2 - storeHeight / 2 : parseFloat(updatePositionData[1])
+						!updatePositionData[0] ? screenWidth / 2 - storeWidth / 2 : parseFloat(updatePositionData[0]),
+						!updatePositionData[1] ? screenHeight / 2 - storeHeight / 2 : parseFloat(updatePositionData[1])
 					)
 				}
 
@@ -3568,7 +3568,7 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 	}
 
 	function drawNamesAndIcons(tmpObj) {
-		var tmpText = (tmpObj.team ? "[" + tmpObj.team + "] " : "") + (tmpObj.name || "") //var w =
+		var tmpText = (tmpObj.team ? "[" + (tmpObj.team == "\u0000" ? "" : tmpObj.team) + "] " : "") + (tmpObj.name || "") //var w =
 		if (tmpText != "") {
 			gameContext.font = (tmpObj.nameScale || 30) + "px Hammersmith One"
 			gameContext.fillStyle = "#fff"
@@ -4265,7 +4265,7 @@ async function startRender(resolution, frameRate, renderFrame, renderStart, rend
 			)
 			await fs.promises.writeFile(path.join(__dirname, "tmp", outputName, `frame-${i2}.png`), mainCanvas.toBuffer("image/png"))
 			i2++
-			millisecTime += 1000 / frameRate
+			millisecTime += (1000 / frameRate) * speed
 		}
 	}
 
@@ -4360,10 +4360,10 @@ server.on("connection", async (conn) => {
 		const [packet, data] = JSON.parse(x)
 		if (packet === "renderImage") {
 			conn.send(JSON.stringify({ packet: "start", data: null }))
-			startRender(data[0].RESOLUTION, data[0].FPS, data[1], null, null, data[2], data[3], data[4], conn)
+			startRender(data[0].RESOLUTION, data[0].FPS, data[0].SPEED, data[1], null, null, data[2], data[3], data[4], conn)
 		} else if (packet === "renderVideo") {
 			conn.send(JSON.stringify({ packet: "start", data: null }))
-			startRender(data[0].RESOLUTION, data[0].FPS, null, data[1], data[2], data[3], data[4], data[5], conn)
+			startRender(data[0].RESOLUTION, data[0].FPS, data[0].SPEED, null, data[1], data[2], data[3], data[4], data[5], conn)
 		} else if (packet === "recordStart") {
 			RECORDER.date[sid] = data[0]
 			RECORDER.lastDate[sid] = RECORDER.date[sid]
