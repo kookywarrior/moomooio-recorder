@@ -2714,7 +2714,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 			gameContext.strokeStyle = darkOutlineColor
 			for (let i = 0; i < players.length + ais.length; ++i) {
 				tmpObj = players[i] || ais[i - players.length]
-				if (tmpObj.visible) {
+				if (tmpObj.visible && (tmpObj.skinIndex != 10 || tmpObj.sid === player.sid || (tmpObj.team && tmpObj.team == player.team))) {
 					drawNamesAndIcons(tmpObj)
 					drawBars(tmpObj)
 				}
@@ -3411,7 +3411,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	}
 
 	function drawNamesAndIcons(tmpObj) {
-		var tmpText = (tmpObj.team ? "[" + (tmpObj.team == "\u0000" ? "" : tmpObj.team) + "] " : "") + (tmpObj.name || "") //var w =
+		var tmpText = (tmpObj.team ? "[" + tmpObj.team.replaceAll("\u0000", "") + "] " : "") + (tmpObj.name || "")
 		if (tmpText != "") {
 			gameContext.font = (tmpObj.nameScale || 30) + "px Hammersmith One"
 			gameContext.fillStyle = "#fff"
