@@ -8,7 +8,7 @@
 // @run-at       document-start
 // @grant        unsafeWindow
 // @license      MIT
-// @version      0.4
+// @version      0.5
 // @namespace    https://greasyfork.org/users/999838
 // ==/UserScript==
 
@@ -1502,53 +1502,7 @@ const PORT = 6789
 		if (!init) {
 			init = true
 			this.addEventListener("message", (e) => {
-				if (e === "addBreak") {
-					unsafeWindow.sendToLocal("addBreak", [
-						now.toString(),
-						{
-							inGame,
-							disconnect,
-							playerSID,
-							moofoll,
-							camX,
-							camY,
-							lockDir,
-							canvasMouse,
-							mouse,
-							minimapData,
-							leaderboardData,
-							fontHeight,
-							visibility: {
-								storeMenu: document.getElementById("storeMenu").style.display === "block",
-								allianceMenu: document.getElementById("allianceMenu").style.display === "block",
-								chatHolder: document.getElementById("chatHolder").style.display === "block",
-								noticationDisplay: document.getElementById("noticationDisplay").style.display === "block",
-								upgradeHolder: document.getElementById("upgradeHolder").style.display === "block"
-							},
-							inputText: {
-								chatBox: document.getElementById("chatBox").value,
-								allianceInput: document.getElementById("allianceInput") ? document.getElementById("allianceInput").value : ""
-							},
-							chatBoxLeft: document.getElementById("chatBox").scrollLeft,
-							chatBoxWidth,
-							itemInfoData,
-							allianceNotificationName,
-							hoverData,
-							storeData: unsafeWindow.updateStoreData,
-							updatePositionData: unsafeWindow.updatePositionData,
-							allianceData: unsafeWindow.updateAllianceData,
-							players: JSON.parse(JSON.stringify(players)),
-							ais: JSON.parse(JSON.stringify(ais)),
-							gameObjects: JSON.parse(JSON.stringify(gameObjects)),
-							projectiles: JSON.parse(JSON.stringify(projectiles)),
-							texts: JSON.parse(JSON.stringify(texts)),
-							mapPings: JSON.parse(JSON.stringify(mapPings))
-						}
-					])
-					lastCanvasMouse = canvasMouse
-					lastMouse = mouse
-					return
-				}
+				console.log(e.data)
 				try {
 					let data = new Uint8Array(e.data)
 					const parsed = msgpack.decode(data)
@@ -2026,7 +1980,8 @@ const PORT = 6789
 	let ws,
 		websocketReady = false,
 		errorCountdown = false,
-		markerCountdown = false
+		markerCountdown = false,
+		wsInterval = null
 	unsafeWindow.sendToLocal = async (packet, data) => {
 		if (websocketReady) {
 			ws.send(JSON.stringify([packet, data]))
@@ -2106,12 +2061,64 @@ const PORT = 6789
 			])
 			lastCanvasMouse = canvasMouse
 			lastMouse = mouse
+			if (wsInterval == null) {
+				wsInterval = setInterval(() => {
+					unsafeWindow.sendToLocal("addBreak", [
+						now.toString(),
+						{
+							inGame,
+							disconnect,
+							playerSID,
+							moofoll,
+							camX,
+							camY,
+							lockDir,
+							canvasMouse,
+							mouse,
+							minimapData,
+							leaderboardData,
+							fontHeight,
+							visibility: {
+								storeMenu: document.getElementById("storeMenu").style.display === "block",
+								allianceMenu: document.getElementById("allianceMenu").style.display === "block",
+								chatHolder: document.getElementById("chatHolder").style.display === "block",
+								noticationDisplay: document.getElementById("noticationDisplay").style.display === "block",
+								upgradeHolder: document.getElementById("upgradeHolder").style.display === "block"
+							},
+							inputText: {
+								chatBox: document.getElementById("chatBox").value,
+								allianceInput: document.getElementById("allianceInput") ? document.getElementById("allianceInput").value : ""
+							},
+							chatBoxLeft: document.getElementById("chatBox").scrollLeft,
+							chatBoxWidth,
+							itemInfoData,
+							allianceNotificationName,
+							hoverData,
+							storeData: unsafeWindow.updateStoreData,
+							updatePositionData: unsafeWindow.updatePositionData,
+							allianceData: unsafeWindow.updateAllianceData,
+							players: JSON.parse(JSON.stringify(players)),
+							ais: JSON.parse(JSON.stringify(ais)),
+							gameObjects: JSON.parse(JSON.stringify(gameObjects)),
+							projectiles: JSON.parse(JSON.stringify(projectiles)),
+							texts: JSON.parse(JSON.stringify(texts)),
+							mapPings: JSON.parse(JSON.stringify(mapPings))
+						}
+					])
+					lastCanvasMouse = canvasMouse
+					lastMouse = mouse
+				}, 60 * 1000 * 2)
+			}
 		}
 		ws.onclose = () => {
 			websocketReady = false
 			if (!errorCountdown && !markerCountdown) {
 				recordButton.innerHTML = `<i class="material-icons" style="font-size:40px;vertical-align:middle">&#xe837;</i>`
 				recordButton.style.color = null
+			}
+			if (wsInterval != null) {
+				clearInterval(wsInterval)
+				wsInterval = null
 			}
 		}
 		ws.onerror = () => {
@@ -2135,7 +2142,6 @@ const PORT = 6789
 	unsafeWindow.recordStop = () => {
 		ws.close()
 		ws = null
-		console.log("stopped")
 		if (document.getElementById("stopRecordingWhenDisconnected") != null) {
 			document.getElementById("stopRecordingWhenDisconnected").remove()
 		}
