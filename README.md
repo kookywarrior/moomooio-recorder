@@ -1,5 +1,5 @@
 # MooMoo.io Recorder
-Record your gameplay without a recorder!
+Record your gameplay without a recording software!
 
 ## Requirements
 - Any operating system that can run Node.js
