@@ -2462,8 +2462,8 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		minimapData = data
 	}
 
-	function updateStore(storeIndex, storeArray) {
-		storeData = [storeIndex, storeArray]
+	function updateStore(storeIndex, storeArray, elementsLength, currentScrollPos) {
+		storeData = [storeIndex, storeArray, elementsLength, currentScrollPos]
 		renderStore()
 	}
 
@@ -2471,8 +2471,8 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		updatePositionData = data
 	}
 
-	function updateAlliance(team, allianceArray) {
-		allianceData = [team, allianceArray]
+	function updateAlliance(team, allianceArray, elementsLength, currentScrollPos) {
+		allianceData = [team, allianceArray, elementsLength, currentScrollPos]
 		renderAlliance()
 	}
 
@@ -3569,6 +3569,14 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 				storeContext.fillText("Equip", storeWidth - 5 - 10, upperHeight + 50 - 10 + 50 * i)
 			}
 		}
+
+		if (storeData[2] != null && storeData[2] >= 4) {
+			const elementHeight = 220 / storeData[2]
+			storeContext.beginPath()
+			storeContext.roundRect(storeWidth - 3, 10 + fontHeight[26] + 10 + 15 + elementHeight * storeData[3], 3, elementHeight * 4, 10)
+			storeContext.fillStyle = "#fff"
+			storeContext.fill()
+		}
 	}
 
 	function renderAlliance() {
@@ -3903,7 +3911,6 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	}
 
 	resizeCanvas(mainCanvas, canvasWidth, canvasHeight)
-
 	if (renderFrame != null) {
 		for (let i = frameRate; i > 0; i--) {
 			const num = renderFrame - i * Math.floor(1000 / frameRate)
