@@ -2280,8 +2280,8 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		minimapData = data
 	}
 
-	function updateStore(storeIndex, storeArray) {
-		storeData = [storeIndex, storeArray]
+	function updateStore(storeIndex, storeArray, elementsLength, currentScrollPos) {
+		storeData = [storeIndex, storeArray, elementsLength, currentScrollPos]
 		renderStore()
 	}
 
@@ -3724,6 +3724,14 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 			} else {
 				storeContext.fillText("Equip", storeWidth - 5 - 10, upperHeight + 50 - 10 + 50 * i)
 			}
+		}
+
+		if (storeData[2] != null && storeData[2] >= 4) {
+			const elementHeight = 220 / storeData[2]
+			storeContext.beginPath()
+			storeContext.roundRect(storeWidth - 3, 10 + fontHeight[26] + 10 + 15 + elementHeight * storeData[3], 3, elementHeight * 4, 10)
+			storeContext.fillStyle = "#fff"
+			storeContext.fill()
 		}
 	}
 
