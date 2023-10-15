@@ -8,7 +8,7 @@
 // @run-at       document-start
 // @grant        unsafeWindow
 // @license      MIT
-// @version      0.5
+// @version      0.6
 // @namespace    https://greasyfork.org/users/999838
 // ==/UserScript==
 
@@ -2209,6 +2209,8 @@ const PORT = 6789
 		unsafeWindow.addEventListener("resize", () => {
 			defineElementAndFontSize()
 			if (websocketReady) {
+				errorCountdown = false
+				markerCountdown = false
 				unsafeWindow.recordStop()
 			}
 		})
