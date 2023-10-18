@@ -2289,8 +2289,8 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		updatePositionData = data
 	}
 
-	function updateAlliance(team, allianceArray) {
-		allianceData = [team, allianceArray]
+	function updateAlliance(team, allianceArray, elementsLength, currentScrollPos) {
+		allianceData = [team, allianceArray, elementsLength, currentScrollPos]
 		renderAlliance()
 	}
 
@@ -3726,7 +3726,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 			}
 		}
 
-		if (storeData[2] != null && storeData[2] >= 4) {
+		if (storeData[2] != null && storeData[2] > 4) {
 			const elementHeight = 220 / storeData[2]
 			storeContext.beginPath()
 			storeContext.roundRect(storeWidth - 3, 10 + fontHeight[26] + 10 + 15 + elementHeight * storeData[3], 3, elementHeight * 4, 10)
@@ -3797,6 +3797,14 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 				allianceContext.textAlign = "right"
 				allianceContext.fillText("Join", allianceWidth - 10 - 5, 10 + 40 - 5 + 40 * i)
 			}
+		}
+
+		if (allianceData[2] != null && allianceData[2] > 5) {
+			const elementHeight = 220 / allianceData[2]
+			allianceContext.beginPath()
+			allianceContext.roundRect(allianceWidth - 3, elementHeight * allianceData[3], 3, elementHeight * 5, 10)
+			allianceContext.fillStyle = "#fff"
+			allianceContext.fill()
 		}
 	}
 
