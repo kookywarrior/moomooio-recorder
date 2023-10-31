@@ -3703,7 +3703,6 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 						break
 					}
 				}
-				skinPointers[index] = element
 			}
 			if (element == null) continue
 
