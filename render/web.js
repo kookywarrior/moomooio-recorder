@@ -3547,7 +3547,6 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 						break
 					}
 				}
-				skinPointers[index] = element
 			}
 			if (element == null) continue
 
