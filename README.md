@@ -26,4 +26,4 @@ Record your gameplay without a recording software!
 3. Export video/image.
 
 ## Reference
-- https://moomoo.io/bundle.js
+- https://moomoo.io/assets/index-ffd48cb5.js
