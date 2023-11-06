@@ -5,14 +5,25 @@
 // @match        *://*.moomoo.io/*
 // @icon         https://moomoo.io/img/favicon.png?v=1
 // @require      https://cdnjs.cloudflare.com/ajax/libs/msgpack-lite/0.1.26/msgpack.min.js
+// @require		 https://greasyfork.org/scripts/478839-moomoo-io-packet-code/code/MooMooio%20Packet%20Code.js?version=1275938
 // @run-at       document-start
 // @grant        unsafeWindow
 // @license      MIT
-// @version      0.6
+// @version      0.7
 // @namespace    https://greasyfork.org/users/999838
 // ==/UserScript==
 
 const PORT = 6789
+const NEWPACKETCODE = {
+	SEND: {},
+	RECEIVE: {}
+}
+for (const key in OLDPACKETCODE.SEND) {
+	NEWPACKETCODE.SEND[OLDPACKETCODE.SEND[key]] = key
+}
+for (const key in OLDPACKETCODE.RECEIVE) {
+	NEWPACKETCODE.RECEIVE[OLDPACKETCODE.RECEIVE[key]] = key
+}
 ;(() => {
 	unsafeWindow.recorder = true
 
@@ -851,6 +862,9 @@ const PORT = 6789
 		},
 		getDirection: function (x1, y1, x2, y2) {
 			return Math.atan2(y1 - y2, x1 - x2)
+		},
+		NewToOld: function (packetCode, type) {
+			return NEWPACKETCODE[type][packetCode]
 		}
 	}
 
@@ -1275,6 +1289,75 @@ const PORT = 6789
 			viewRange: 800,
 			chargePlayer: true,
 			drop: ["food", 1000]
+		},
+		{
+			id: 9,
+			name: "💀MOOFIE",
+			src: "wolf_2",
+			hostile: true,
+			fixedSpawn: true,
+			dontRun: true,
+			hitScare: 50,
+			spawnDelay: 60000,
+			noTrap: true,
+			nameScale: 35,
+			dmg: 12,
+			colDmg: 100,
+			killScore: 3000,
+			health: 9000,
+			weightM: 0.45,
+			speed: 0.0015,
+			turnSpeed: 0.0025,
+			scale: 94,
+			viewRange: 1440,
+			chargePlayer: true,
+			drop: ["food", 3000],
+			minSpawnRange: 0.85,
+			maxSpawnRange: 0.9
+		},
+		{
+			id: 10,
+			name: "💀Wolf",
+			src: "wolf_1",
+			hostile: true,
+			fixedSpawn: true,
+			dontRun: true,
+			hitScare: 50,
+			spawnDelay: 30000,
+			dmg: 10,
+			killScore: 700,
+			health: 500,
+			weightM: 0.45,
+			speed: 0.00115,
+			turnSpeed: 0.0025,
+			scale: 88,
+			viewRange: 1440,
+			chargePlayer: true,
+			drop: ["food", 400],
+			minSpawnRange: 0.85,
+			maxSpawnRange: 0.9
+		},
+		{
+			id: 11,
+			name: "💀Bully",
+			src: "bull_1",
+			hostile: true,
+			fixedSpawn: true,
+			dontRun: true,
+			hitScare: 50,
+			dmg: 20,
+			killScore: 5000,
+			health: 5000,
+			spawnDelay: 100000,
+			weightM: 0.45,
+			speed: 0.00115,
+			turnSpeed: 0.0025,
+			scale: 94,
+			viewRange: 1440,
+			chargePlayer: true,
+			drop: ["food", 800],
+			minSpawnRange: 0.85,
+			maxSpawnRange: 0.9
 		}
 	]
 	class AI {
@@ -1502,11 +1585,10 @@ const PORT = 6789
 		if (!init) {
 			init = true
 			this.addEventListener("message", (e) => {
-				console.log(e.data)
 				try {
 					let data = new Uint8Array(e.data)
 					const parsed = msgpack.decode(data)
-					const type = parsed[0]
+					const type = UTILS.NewToOld(parsed[0], "RECEIVE")
 					data = parsed[1]
 					const events = {
 						1: setupGame,
@@ -2235,7 +2317,7 @@ const PORT = 6789
 				y: e.clientY
 			}
 		})
-		document.getElementById("gameCanvas").addEventListener("mousemove", (e) => {
+		document.getElementById("touch-controls-fullscreen").addEventListener("mousemove", (e) => {
 			canvasMouse = {
 				x: e.clientX,
 				y: e.clientY
@@ -2256,10 +2338,15 @@ const PORT = 6789
 			#actionBar {
 				font-size: 0;
 				bottom: 20px;
+				position: absolute;
 			}
 			#ageBarContainer {
 				font-size: 0;
 				bottom: 96px;
+				position: absolute;
+			}
+			#ageText {
+				position: absolute;
 			}
 			.notifButton {
 				font-size: 0;
