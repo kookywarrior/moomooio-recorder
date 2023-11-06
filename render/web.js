@@ -1395,7 +1395,8 @@ const elementDATA = {
 const exportDATA = {
 	FPS: 60,
 	RESOLUTION: 1,
-	SPEED: 1
+	SPEED: 1,
+	QUALITY: "Medium"
 }
 
 const gameCanvas = document.createElement("canvas"),
@@ -4784,6 +4785,13 @@ exportContainer.hideTitle("dimension")
 exportContainer.addRange("Speed", 0.1, 2, exportDATA.SPEED, 0.1, (data) => {
 	exportDATA.SPEED = data
 })
+exportContainer.addDropDown("Quality", ["Ultra Low", "Very Low", "Lower", "Low", "Medium", "High", "Higher", "Very High", "Ultra High"])
+const selectQualityElement = document.evaluate("//b[text()='Quality']", document, null, XPathResult.ANY_TYPE, null).iterateNext()
+	.parentElement.nextSibling
+selectQualityElement.options.selectedIndex = 4
+selectQualityElement.addEventListener("input", (event) => {
+	exportDATA.QUALITY = event.target.value
+})
 exportContainer.addButton("Export Image", () => {
 	const OUTPUTNAME = Date.now()
 	const ws = new WebSocket("ws://localhost:" + PORT)
@@ -4794,7 +4802,7 @@ exportContainer.addButton("Export Image", () => {
 			const tmpOption = document.createElement("option")
 			tmpOption.label = OUTPUTNAME
 			tmpOption.innerText = OUTPUTNAME
-			document.querySelector(".qs_select").appendChild(tmpOption)
+			selectProjectElement.appendChild(tmpOption)
 			EXPORTINGDATA[OUTPUTNAME] = {
 				type: "image",
 				rendering: 0,
@@ -4817,10 +4825,10 @@ exportContainer.addButton("Export Image", () => {
 		ws.send(JSON.stringify(["renderImage", [exportDATA, previewDATA.TIMELINE, fileNAME, String(OUTPUTNAME), elementDATA]]))
 	}
 	ws.onclose = () => {
-		const tmpElement = document.querySelector(`.qs_select > option[label="${OUTPUTNAME}"]`)
+		const tmpElement = selectProjectElement.querySelector(`option[label="${OUTPUTNAME}"]`)
 		if (tmpElement) tmpElement.remove()
 		delete websockets[OUTPUTNAME]
-		const tmpSelect = document.querySelector(`.qs_select > option`)
+		const tmpSelect = selectProjectElement.querySelector(`option`)
 		SELECTEDPROJECT = tmpSelect ? tmpSelect.label : null
 		updateExportingContainer()
 	}
@@ -4834,7 +4842,7 @@ exportContainer.addButton("Export Video", () => {
 			const tmpOption = document.createElement("option")
 			tmpOption.label = OUTPUTNAME
 			tmpOption.innerText = OUTPUTNAME
-			document.querySelector(".qs_select").appendChild(tmpOption)
+			selectProjectElement.appendChild(tmpOption)
 			EXPORTINGDATA[OUTPUTNAME] = {
 				type: "video",
 				rendering: 0,
@@ -4857,10 +4865,10 @@ exportContainer.addButton("Export Video", () => {
 		ws.send(JSON.stringify(["renderVideo", [exportDATA, previewDATA.CUTIN, previewDATA.CUTOUT, fileNAME, String(OUTPUTNAME), elementDATA]]))
 	}
 	ws.onclose = () => {
-		const tmpElement = document.querySelector(`.qs_select > option[label="${OUTPUTNAME}"]`)
+		const tmpElement = selectProjectElement.querySelector(`option[label="${OUTPUTNAME}"]`)
 		if (tmpElement) tmpElement.remove()
 		delete websockets[OUTPUTNAME]
-		const tmpSelect = document.querySelector(`.qs_select > option`)
+		const tmpSelect = selectProjectElement.querySelector(`option`)
 		SELECTEDPROJECT = tmpSelect ? tmpSelect.label : null
 		updateExportingContainer()
 	}
@@ -4877,7 +4885,9 @@ const websockets = {}
 const exportingContainer = QuickSettings.create(0, 0, "Exporting", document.getElementById("exportingContainer"))
 exportingContainer.setDraggable(false)
 exportingContainer.addDropDown("Select Project", [])
-document.querySelector(".qs_select").addEventListener("input", (event) => {
+const selectProjectElement = document.evaluate("//b[text()='Select Project']", document, null, XPathResult.ANY_TYPE, null).iterateNext()
+	.parentElement.nextSibling
+selectProjectElement.addEventListener("input", (event) => {
 	SELECTEDPROJECT = event.target.value
 	updateExportingContainer()
 })
@@ -4900,7 +4910,7 @@ function updateExportingContainer() {
 	window.onbeforeunload = () => {
 		return "Are you sure?"
 	}
-	document.querySelector(".qs_select").value = String(SELECTEDPROJECT)
+	selectProjectElement.value = String(SELECTEDPROJECT)
 	exportingContainer.removeControl("Rendering")
 	exportingContainer.removeControl("Converting")
 	exportingContainer.addProgressBar("Rendering", 100, EXPORTINGDATA[SELECTEDPROJECT].rendering)
