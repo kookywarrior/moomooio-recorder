@@ -1323,7 +1323,10 @@ const config = {
 	waveMax: 1.3,
 	snowBiomeTop: 2400,
 	mapScale: 14400,
-	mapPingScale: 40
+	mapPingScale: 40,
+	volcanoScale: 320,
+	innerVolcanoScale: 100,
+	volcanoAnimationDuration: 3200
 }
 const UTILS = {
 	randInt: function (min, max) {
@@ -1415,6 +1418,10 @@ const disconnectCanvas = document.createElement("canvas"),
 	disconnectContext = disconnectCanvas.getContext("2d")
 const chatBoxCanvas = document.createElement("canvas"),
 	chatBoxContext = chatBoxCanvas.getContext("2d")
+const volcanoLandCanvas = document.createElement("canvas"),
+	volcanoLandContext = volcanoLandCanvas.getContext("2d")
+const volcanoLavaCanvas = document.createElement("canvas"),
+	volcanoLavaContext = volcanoLavaCanvas.getContext("2d")
 
 var outlineColor = "#525252",
 	darkOutlineColor = "#3d3f42",
@@ -1931,6 +1938,75 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 			viewRange: 800,
 			chargePlayer: true,
 			drop: ["food", 1000]
+		},
+		{
+			id: 9,
+			name: "💀MOOFIE",
+			src: "wolf_2",
+			hostile: true,
+			fixedSpawn: true,
+			dontRun: true,
+			hitScare: 50,
+			spawnDelay: 60000,
+			noTrap: true,
+			nameScale: 35,
+			dmg: 12,
+			colDmg: 100,
+			killScore: 3000,
+			health: 9000,
+			weightM: 0.45,
+			speed: 0.0015,
+			turnSpeed: 0.0025,
+			scale: 94,
+			viewRange: 1440,
+			chargePlayer: true,
+			drop: ["food", 3000],
+			minSpawnRange: 0.85,
+			maxSpawnRange: 0.9
+		},
+		{
+			id: 10,
+			name: "💀Wolf",
+			src: "wolf_1",
+			hostile: true,
+			fixedSpawn: true,
+			dontRun: true,
+			hitScare: 50,
+			spawnDelay: 30000,
+			dmg: 10,
+			killScore: 700,
+			health: 500,
+			weightM: 0.45,
+			speed: 0.00115,
+			turnSpeed: 0.0025,
+			scale: 88,
+			viewRange: 1440,
+			chargePlayer: true,
+			drop: ["food", 400],
+			minSpawnRange: 0.85,
+			maxSpawnRange: 0.9
+		},
+		{
+			id: 11,
+			name: "💀Bully",
+			src: "bull_1",
+			hostile: true,
+			fixedSpawn: true,
+			dontRun: true,
+			hitScare: 50,
+			dmg: 20,
+			killScore: 5000,
+			health: 5000,
+			spawnDelay: 100000,
+			weightM: 0.45,
+			speed: 0.00115,
+			turnSpeed: 0.0025,
+			scale: 94,
+			viewRange: 1440,
+			chargePlayer: true,
+			drop: ["food", 800],
+			minSpawnRange: 0.85,
+			maxSpawnRange: 0.9
 		}
 	]
 	class AI {
@@ -2403,7 +2479,11 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 			tmpText = new Text()
 			texts.push(tmpText)
 		}
-		tmpText.init(x, y, 50, 0.18, 500, Math.abs(value), value >= 0 ? "#fff" : "#8ecc51")
+		if (type === -1) {
+			tmpText.init(x, y, 50, 0.18, 500, value, "#ee5551")
+		} else {
+			tmpText.init(x, y, 50, 0.18, 500, Math.abs(value), value >= 0 ? "#fff" : "#8ecc51")
+		}
 	}
 
 	function updateLeaderboard(data) {
@@ -2587,6 +2667,11 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		yOffset,
 		waterMult = 1,
 		waterPlus = 0,
+		volcano = {
+			animationTime: 0,
+			x: config.mapScale - config.volcanoScale - 120,
+			y: config.mapScale - config.volcanoScale - 120
+		},
 		leaderboardData = [],
 		fontHeight = {},
 		itemInfoData = {},
@@ -3192,8 +3277,30 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 					}
 					gameContext.restore()
 				} else {
-					tmpSprite = getResSprite(tmpObj)
-					gameContext.drawImage(tmpSprite, tmpX - tmpSprite.width / 2, tmpY - tmpSprite.height / 2)
+					if (tmpObj.type === 4) {
+						volcano.animationTime += delta
+						volcano.animationTime %= config.volcanoAnimationDuration
+						const tmpDuration = config.volcanoAnimationDuration / 2
+						const animationProgress = 1.7 + 0.3 * (Math.abs(tmpDuration - volcano.animationTime) / tmpDuration)
+						const tmpInnerScale = config.innerVolcanoScale * animationProgress
+						gameContext.drawImage(
+							volcanoLandCanvas,
+							volcano.x - config.volcanoScale - xOffset,
+							volcano.y - config.volcanoScale - yOffset,
+							config.volcanoScale * 2,
+							config.volcanoScale * 2
+						)
+						gameContext.drawImage(
+							volcanoLavaCanvas,
+							volcano.x - tmpInnerScale - xOffset,
+							volcano.y - tmpInnerScale - yOffset,
+							tmpInnerScale * 2,
+							tmpInnerScale * 2
+						)
+					} else {
+						tmpSprite = getResSprite(tmpObj)
+						gameContext.drawImage(tmpSprite, tmpX - tmpSprite.width / 2, tmpY - tmpSprite.height / 2)
+					}
 				}
 			}
 		}
@@ -3917,6 +4024,33 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		disconnectContext.fillText("MOOMOO.io", screenWidth / 2, fontHeight[170])
 	}
 
+	function drawPolygon(context, numberOfSegments, radius) {
+		const lineWidth = context.lineWidth || 0
+		radius /= 2
+		context.beginPath()
+		let n = (Math.PI * 2) / numberOfSegments
+		for (let r = 0; r < numberOfSegments; r++) {
+			context.lineTo(radius + (radius - lineWidth / 2) * Math.cos(n * r), radius + (radius - lineWidth / 2) * Math.sin(n * r))
+		}
+		context.closePath()
+	}
+
+	resizeCanvas(volcanoLandCanvas, config.volcanoScale * 2, config.volcanoScale * 2)
+	volcanoLandContext.strokeStyle = "#3e3e3e"
+	volcanoLandContext.lineWidth = outlineWidth * 2
+	volcanoLandContext.fillStyle = "#7f7f7f"
+	drawPolygon(volcanoLandContext, 10, config.volcanoScale * 2)
+	volcanoLandContext.fill()
+	volcanoLandContext.stroke()
+
+	resizeCanvas(volcanoLavaCanvas, config.innerVolcanoScale * 2, config.innerVolcanoScale * 2)
+	volcanoLavaContext.strokeStyle = "#f56f16"
+	volcanoLavaContext.lineWidth = outlineWidth * 1.6
+	volcanoLavaContext.fillStyle = "#f54e16"
+	drawPolygon(volcanoLavaContext, 10, config.innerVolcanoScale * 2)
+	volcanoLavaContext.fill()
+	volcanoLavaContext.stroke()
+
 	resizeCanvas(mainCanvas, canvasWidth, canvasHeight)
 	if (renderFrame != null) {
 		for (let i = frameRate; i > 0; i--) {
@@ -4150,7 +4284,7 @@ function getResSprite(tmpObj) {
 			var tmpScale
 			for (var i = 0; i < 2; ++i) {
 				tmpScale = tmpObj.scale * (!i ? 1 : 0.5)
-				renderStar(tmpContext, 7, tmpScale, tmpScale * 0.7)
+				renderStar(tmpContext, tmpObj.sid % 2 === 0 ? 5 : 7, tmpScale, tmpScale * 0.7)
 				tmpContext.fillStyle = !biomeID ? (!i ? "#9ebf57" : "#b4db62") : !i ? "#e3f1f4" : "#fff"
 				tmpContext.fill()
 				if (!i) {
