@@ -1363,7 +1363,7 @@ const UTILS = {
 	}
 }
 
-async function startRender(resolution, frameRate, speed, renderFrame, renderStart, renderEnd, dataFileName, outputName, element, ws) {
+async function startRender(resolution, frameRate, speed, renderFrame, renderStart, renderEnd, dataFileName, outputName, element, ws, quality) {
 	if (fs.existsSync(path.join(__dirname, "tmp", outputName))) {
 		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 	}
@@ -4426,6 +4426,17 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 	if (renderStart != null) {
 		var totalTime,
 			lastProgressTime = -1
+		const qualityCheck = {
+			"Ultra Low": [50, "ultrafast"],
+			"Very Low": [40, "ultrafast"],
+			Lower: [32, "superfast"],
+			Low: [27, "superfast"],
+			Medium: [22, "veryfast"],
+			High: [17, "faster"],
+			Higher: [12, "medium"],
+			"Very High": [7, "slow"],
+			"Ultra High": [3, "veryslow"]
+		}
 		ffmpeg.setFfmpegPath(ffmpegStatic)
 		await new Promise((resolve, reject) => {
 			ffmpeg()
@@ -4433,7 +4444,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 				.inputOptions([`-framerate ${frameRate}`])
 
 				.videoCodec("libx264")
-				.outputOptions(["-pix_fmt yuv420p"])
+				.outputOptions(["-pix_fmt yuv420p", `-crf ${qualityCheck[quality][0]}`, `-preset ${qualityCheck[quality][1]}`])
 
 				.fps(frameRate)
 				.size(`${Math.floor(canvasWidth)}x${Math.floor(canvasHeight)}`)
@@ -4509,7 +4520,7 @@ server.on("connection", async (conn) => {
 			startRender(data[0].RESOLUTION, data[0].FPS, data[0].SPEED, data[1], null, null, data[2], data[3], data[4], conn)
 		} else if (packet === "renderVideo") {
 			conn.send(JSON.stringify({ packet: "start", data: null }))
-			startRender(data[0].RESOLUTION, data[0].FPS, data[0].SPEED, null, data[1], data[2], data[3], data[4], data[5], conn)
+			startRender(data[0].RESOLUTION, data[0].FPS, data[0].SPEED, null, data[1], data[2], data[3], data[4], data[5], conn, data[0].QUALITY)
 		} else if (packet === "recordStart") {
 			RECORDER.date[sid] = data[0]
 			RECORDER.lastDate[sid] = RECORDER.date[sid]
