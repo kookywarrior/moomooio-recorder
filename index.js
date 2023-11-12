@@ -1755,7 +1755,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		},
 		{
 			id: 9,
-			name: "💀MOOFIE",
+			name: "ðŸ’€MOOFIE",
 			src: "wolf_2",
 			hostile: true,
 			fixedSpawn: true,
@@ -1780,7 +1780,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		},
 		{
 			id: 10,
-			name: "💀Wolf",
+			name: "ðŸ’€Wolf",
 			src: "wolf_1",
 			hostile: true,
 			fixedSpawn: true,
@@ -1802,7 +1802,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		},
 		{
 			id: 11,
-			name: "💀Bully",
+			name: "ðŸ’€Bully",
 			src: "bull_1",
 			hostile: true,
 			fixedSpawn: true,
@@ -3674,6 +3674,16 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 	function drawNamesAndIcons(tmpObj) {
 		var tmpText = (tmpObj.team ? "[" + tmpObj.team.replaceAll("\u0000", "") + "] " : "") + (tmpObj.name || "")
 		if (tmpText != "") {
+			if (!tmpObj.player_isPlayer) {
+				if (tmpObj.name.includes("Wolf") && tmpObj.name !== "Wolf") {
+					tmpText = "💀Wolf"
+				} else if (tmpObj.name.includes("Bully") && tmpObj.name !== "Bully") {
+					tmpText = "💀Bully"
+				} else if (tmpObj.name.includes("MOOFIE") && tmpObj.name !== "MOOFIE") {
+					tmpText = "💀MOOFIE"
+				}
+			}
+
 			gameContext.font = (tmpObj.nameScale || 30) + "px Hammersmith One"
 			gameContext.fillStyle = "#fff"
 			gameContext.textBaseline = "middle"
