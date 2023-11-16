@@ -2507,7 +2507,9 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		visibility,
 		inputText,
 		chatBoxLeft,
-		chatBoxWidth
+		chatBoxWidth,
+		playerHat,
+		playerTail
 
 	async function updateGame(time, render) {
 		now = time
@@ -2537,6 +2539,22 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 			tmpSTARTDATA.counter++
 		}
 		lastUpdate = now
+
+		if (playerHat == null) {
+			playerHat = player.skinIndex
+			renderStore()
+		} else if (playerHat !== player.skinIndex) {
+			playerHat = player.skinIndex
+			renderStore()
+		}
+
+		if (playerTail == null) {
+			playerTail = player.tailIndex
+			renderStore()
+		} else if (playerTail !== player.tailIndex) {
+			playerTail = player.tailIndex
+			renderStore()
+		}
 
 		moveCamera()
 
