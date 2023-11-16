@@ -2684,7 +2684,9 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		visibility,
 		inputText,
 		chatBoxLeft,
-		chatBoxWidth
+		chatBoxWidth,
+		playerHat,
+		playerTail
 
 	async function updateGame(time, render) {
 		elementContext.clearRect(0, 0, screenWidth, screenHeight)
@@ -2715,6 +2717,22 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 			tmpSTARTDATA.counter++
 		}
 		lastUpdate = now
+
+		if (playerHat == null) {
+			playerHat = player.skinIndex
+			renderStore()
+		} else if (playerHat !== player.skinIndex) {
+			playerHat = player.skinIndex
+			renderStore()
+		}
+
+		if (playerTail == null) {
+			playerTail = player.tailIndex
+			renderStore()
+		} else if (playerTail !== player.tailIndex) {
+			playerTail = player.tailIndex
+			renderStore()
+		}
 
 		moveCamera()
 
@@ -3521,6 +3539,16 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	function drawNamesAndIcons(tmpObj) {
 		var tmpText = (tmpObj.team ? "[" + tmpObj.team.replaceAll("\u0000", "") + "] " : "") + (tmpObj.name || "")
 		if (tmpText != "") {
+			if (!tmpObj.player_isPlayer) {
+				if (tmpObj.name.includes("Wolf") && tmpObj.name !== "Wolf") {
+					tmpText = "💀Wolf"
+				} else if (tmpObj.name.includes("Bully") && tmpObj.name !== "Bully") {
+					tmpText = "💀Bully"
+				} else if (tmpObj.name.includes("MOOFIE") && tmpObj.name !== "MOOFIE") {
+					tmpText = "💀MOOFIE"
+				}
+			}
+
 			gameContext.font = (tmpObj.nameScale || 30) + "px Hammersmith One"
 			gameContext.fillStyle = "#fff"
 			gameContext.textBaseline = "middle"
