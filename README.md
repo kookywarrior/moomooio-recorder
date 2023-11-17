@@ -11,7 +11,7 @@ Record your gameplay without a recording software!
 1. Download and unzip [this](https://github.com/kookywarrior/moomooio-recorder/archive/refs/heads/main.zip).
 2. Open terminal in the unzipped folder. [How to open terminal in unzipped folder](https://www.groovypost.com/howto/open-command-window-terminal-window-specific-folder-windows-mac-linux)
 3. Run this command: `npm install`
-4. Then follow by this command: `node start`
+4. Then follow by this command: `npm run start`
 
 ## Record
 1. Install [this userscript](https://github.com/kookywarrior/moomooio-recorder/raw/main/userscript.user.js).
