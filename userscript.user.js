@@ -9,7 +9,7 @@
 // @run-at       document-start
 // @grant        unsafeWindow
 // @license      MIT
-// @version      0.7
+// @version      0.8
 // @namespace    https://greasyfork.org/users/999838
 // ==/UserScript==
 
@@ -1138,6 +1138,11 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 		return null
 	}
 
+	function randFloat(min, max) {
+		return Math.random() * (max - min + 1) + min
+	}
+	const randomAngle = [randFloat(0, Math.PI), randFloat(0, Math.PI), randFloat(0, Math.PI), randFloat(0, Math.PI)]
+
 	var ais = []
 	var aiTypes = [
 		{
@@ -2101,6 +2106,7 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 				Date.now().toString(),
 				unsafeWindow.innerWidth,
 				unsafeWindow.innerHeight,
+				randomAngle,
 				{
 					inGame,
 					disconnect,
