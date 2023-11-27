@@ -1382,7 +1382,9 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		return
 	}
 	const DATA = require(path.join(__dirname, "record", `${dataFileName}`))
-	const { duration, count, screenWidth, screenHeight, breaks } = DATA.info
+	const { duration, count, screenWidth, screenHeight, breaks, randomAngle } = DATA.info
+	randomAngle = randomAngle || [UTILS.randFloat(0, Math.PI), UTILS.randFloat(0, Math.PI), UTILS.randFloat(0, Math.PI), UTILS.randFloat(0, Math.PI)]
+
 	let tmpSTARTDATA = {}
 	for (const key in breaks) {
 		if ((renderFrame != null && parseInt(key) <= renderFrame) || (renderStart != null && parseInt(key) <= renderStart)) {
@@ -3266,7 +3268,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 			var tmpCanvas = createCanvas(tmpObj.scale * 2.1 + outlineWidth, tmpObj.scale * 2.1 + outlineWidth)
 			var tmpContext = tmpCanvas.getContext("2d")
 			tmpContext.translate(tmpCanvas.width / 2, tmpCanvas.height / 2)
-			tmpContext.rotate(UTILS.randFloat(0, Math.PI))
+			tmpContext.rotate(randomAngle[tmpObj.type])
 			tmpContext.strokeStyle = outlineColor
 			tmpContext.lineWidth = outlineWidth
 			if (tmpObj.type == 0) {
@@ -4522,6 +4524,7 @@ const RECORDER = {
 	marker: {},
 	screenWidth: {},
 	screenHeight: {},
+	randomAngle: {},
 	increaseNumber: 0
 }
 
@@ -4539,6 +4542,7 @@ server.on("connection", async (conn) => {
 	RECORDER.marker[sid] = []
 	RECORDER.screenWidth[sid] = null
 	RECORDER.screenHeight[sid] = null
+	RECORDER.randomAngle[sid] = null
 	RECORDER.increaseNumber++
 
 	conn.on("message", (x) => {
@@ -4557,11 +4561,12 @@ server.on("connection", async (conn) => {
 			RECORDER.breakCount[sid] = 1
 			RECORDER.screenWidth[sid] = data[1]
 			RECORDER.screenHeight[sid] = data[2]
+			RECORDER.randomAngle[sid] = data[3]
 			const filePath = path.join(__dirname, "record", `Recording_${RECORDER.date[sid]}.json`)
 			if (!fs.existsSync(filePath)) {
-				fs.writeFileSync(filePath, `{"data":{"break${RECORDER.breakCount[sid]}":${JSON.stringify(data[3])}`)
+				fs.writeFileSync(filePath, `{"data":{"break${RECORDER.breakCount[sid]}":${JSON.stringify(data[4])}`)
 			} else {
-				fs.appendFileSync(filePath, `,"break${RECORDER.breakCount[sid]}":${JSON.stringify(data[3])}`)
+				fs.appendFileSync(filePath, `,"break${RECORDER.breakCount[sid]}":${JSON.stringify(data[4])}`)
 			}
 			RECORDER.breaks[sid][0] = {
 				name: "break" + RECORDER.breakCount[sid],
@@ -4603,7 +4608,8 @@ server.on("connection", async (conn) => {
 				marker: RECORDER.marker[sid],
 				breaks: RECORDER.breaks[sid],
 				screenWidth: RECORDER.screenWidth[sid],
-				screenHeight: RECORDER.screenHeight[sid]
+				screenHeight: RECORDER.screenHeight[sid],
+				randomAngle: RECORDER.randomAngle[sid]
 			}
 			fs.appendFileSync(path.join(__dirname, "record", `Recording_${RECORDER.date[sid]}.json`), `},"info":${JSON.stringify(data)}}`)
 			delete RECORDER.start[sid]
@@ -4615,6 +4621,7 @@ server.on("connection", async (conn) => {
 			delete RECORDER.lastDate[sid]
 			delete RECORDER.screenWidth[sid]
 			delete RECORDER.screenHeight[sid]
+			delete RECORDER.randomAngle[sid]
 		}
 	})
 })
