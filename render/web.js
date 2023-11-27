@@ -1365,6 +1365,8 @@ const timeline = document.getElementById("timeline")
 const playButton = document.getElementById("playButton")
 const prevFrame = document.getElementById("prevFrame")
 const nextFrame = document.getElementById("nextFrame")
+const prevTrim = document.getElementById("prevTrim")
+const nextTrim = document.getElementById("nextTrim")
 const markerContainer = document.getElementById("markerContainer")
 const previewDATA = {
 	FPS: 60,
@@ -1479,6 +1481,7 @@ var cursorSprites = {}
 let DATA = {},
 	fileNAME = null
 var RUNNINGFRAME = null
+var randomAngle = []
 
 dropInput.addEventListener("change", () => {
 	if (dropInput.files.length) {
@@ -1527,6 +1530,12 @@ function videoFileReader() {
 	reader.addEventListener("load", async (event) => {
 		DATA = await JSON.parse(event.target.result)
 		fileNAME = dropInput.files[0].name
+		randomAngle = DATA.info.randomAngle || [
+			UTILS.randFloat(0, Math.PI),
+			UTILS.randFloat(0, Math.PI),
+			UTILS.randFloat(0, Math.PI),
+			UTILS.randFloat(0, Math.PI)
+		]
 		resizeUI()
 		await preloadImages()
 		document.getElementById("dimension").innerText = `${Math.floor(DATA.info.screenWidth * exportDATA.RESOLUTION)} × ${Math.floor(
@@ -4306,7 +4315,7 @@ function getResSprite(tmpObj) {
 		var tmpCanvas = createCanvas(tmpObj.scale * 2.1 + outlineWidth, tmpObj.scale * 2.1 + outlineWidth)
 		var tmpContext = tmpCanvas.getContext("2d")
 		tmpContext.translate(tmpCanvas.width / 2, tmpCanvas.height / 2)
-		tmpContext.rotate(UTILS.randFloat(0, Math.PI))
+		tmpContext.rotate(randomAngle[tmpObj.type])
 		tmpContext.strokeStyle = outlineColor
 		tmpContext.lineWidth = outlineWidth
 		if (tmpObj.type == 0) {
@@ -4603,6 +4612,12 @@ prevFrame.addEventListener("click", () => {
 nextFrame.addEventListener("click", () => {
 	dragTimeline(previewDATA.TIMELINE + previewDATA.SEEK)
 })
+prevTrim.addEventListener("click", () => {
+	dragCutStart(previewDATA.TIMELINE)
+})
+nextTrim.addEventListener("click", () => {
+	dragCutEnd(previewDATA.TIMELINE)
+})
 
 window.addEventListener("keydown", (event) => {
 	if ((event.target.tagName === "INPUT" && event.target.type === "number") || event.target.type === "text") return
@@ -4618,6 +4633,16 @@ window.addEventListener("keydown", (event) => {
 		event.stopImmediatePropagation()
 		event.stopPropagation()
 		dragTimeline(previewDATA.TIMELINE + previewDATA.SEEK)
+	} else if (event.code === "BracketLeft") {
+		event.preventDefault()
+		event.stopImmediatePropagation()
+		event.stopPropagation()
+		dragCutStart(previewDATA.TIMELINE)
+	} else if (event.code === "BracketRight") {
+		event.preventDefault()
+		event.stopImmediatePropagation()
+		event.stopPropagation()
+		dragCutEnd(previewDATA.TIMELINE)
 	}
 })
 
