@@ -1382,8 +1382,13 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		return
 	}
 	const DATA = require(path.join(__dirname, "record", `${dataFileName}`))
-	const { duration, count, screenWidth, screenHeight, breaks, randomAngle } = DATA.info
-	randomAngle = randomAngle || [UTILS.randFloat(0, Math.PI), UTILS.randFloat(0, Math.PI), UTILS.randFloat(0, Math.PI), UTILS.randFloat(0, Math.PI)]
+	const { duration, count, screenWidth, screenHeight, breaks } = DATA.info
+	const randomAngle = DATA.info.randomAngle || [
+		UTILS.randFloat(0, Math.PI),
+		UTILS.randFloat(0, Math.PI),
+		UTILS.randFloat(0, Math.PI),
+		UTILS.randFloat(0, Math.PI)
+	]
 
 	let tmpSTARTDATA = {}
 	for (const key in breaks) {
