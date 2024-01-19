@@ -1398,7 +1398,7 @@ const exportDATA = {
 	FPS: 60,
 	RESOLUTION: 1,
 	SPEED: 1,
-	QUALITY: "Medium"
+	QUALITY: "Normal"
 }
 
 const gameCanvas = document.createElement("canvas"),
@@ -1581,7 +1581,7 @@ function resizeUI() {
 }
 
 async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, element) {
-	const { duration, count, screenWidth, screenHeight, breaks } = DATA.info
+	const { duration, count, screenWidth, screenHeight, breaks, version } = DATA.info
 	let tmpSTARTDATA = {}
 	for (const key in breaks) {
 		if ((renderFrame != null && parseInt(key) <= renderFrame) || (renderStart != null && parseInt(key) <= renderStart)) {
@@ -1626,8 +1626,8 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	var players = []
 	var player = null
 	var playerSID = null
-	var lockDir = false
-	var canvasMouse, mouse
+	var lockDirBool = false
+	var lockDirMouse, canvasMouse, mouse
 	var moofoll = false
 	class Player {
 		constructor(id, sid, assign) {
@@ -1667,7 +1667,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 			updateUpgrades(0)
 		}
 		spawn(data) {
-			this.chatCountdown = 0
+			this.chatTime = 0
 			this.animTime = 0
 			this.animSpeed = 0
 			this.buildIndex = -1
@@ -2257,11 +2257,11 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	}
 
 	var deathTextScale = 99999
-	var deathTime = null
-	function killPlayer() {
+	var deathTime
+	function killPlayer(time) {
 		deathTextScale = 0
 		inGame = false
-		deathTime = null
+		deathTime = time
 		player.lastDeath = {
 			x: player.x,
 			y: player.y
@@ -2297,11 +2297,11 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		}
 	}
 
-	function receiveChat(sid, message) {
+	function receiveChat(sid, message, time) {
 		var tmpPlayer = findPlayerBySID(sid)
 		if (tmpPlayer) {
 			tmpPlayer.chatMessage = message
-			tmpPlayer.chatCountdown = 3000
+			tmpPlayer.chatTime = time
 		}
 	}
 
@@ -2500,8 +2500,12 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		leaderboardData = data
 	}
 
-	function changeLockDir(lock) {
-		lockDir = lock
+	function lockDir(lock, x, y) {
+		lockDirBool = lock
+		lockDirMouse = {
+			x: x,
+			y: y
+		}
 	}
 
 	function changeCanvasMouse(type, value) {
@@ -2512,16 +2516,13 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		mouse[type] = value
 	}
 
-	var lastDir
 	function getAttackDir() {
 		let returnValue
 		if (!player) {
 			returnValue = 0
 		} else {
-			if (!lockDir) {
-				lastDir = Math.atan2(canvasMouse.y - screenHeight / 2, canvasMouse.x - screenWidth / 2)
-			}
-			returnValue = UTILS.fixTo(lastDir || 0, 2)
+			const tmpMouse = lockDirBool ? lockDirMouse : canvasMouse
+			returnValue = UTILS.fixTo(Math.atan2(tmpMouse.y - screenHeight / 2, tmpMouse.x - screenWidth / 2) || 0, 2)
 		}
 		return returnValue
 	}
@@ -2621,49 +2622,130 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		disconnect = true
 	}
 
+	var PACKETMANAGER
+	if (version === 1) {
+		PACKETMANAGER = {
+			3: "setPlayerTeam",
+			5: "updateStoreItems",
+			6: "receiveChat",
+			7: "updateMinimap",
+			8: "showText",
+			9: "pingMap",
+			C: "setupGame",
+			D: "addPlayer",
+			E: "removePlayer",
+			a: "updatePlayers",
+			G: "updateLeaderboard",
+			H: "loadGameObject",
+			I: "loadAI",
+			J: "animateAI",
+			K: "gatherAnimation",
+			L: "wiggleGameObject",
+			M: "shootTurret",
+			N: "updatePlayerValue",
+			O: "updateHealth",
+			P: "killPlayer",
+			Q: "killObject",
+			R: "killObjects",
+			S: "updateItemCounts",
+			T: "updateAge",
+			U: "updateUpgrades",
+			V: "updateItems",
+			X: "addProjectile",
+			Y: "remProjectile"
+		}
+	} else {
+		PACKETMANAGER = {
+			1: "setupGame",
+			2: "addPlayer",
+			4: "removePlayer",
+			33: "updatePlayers",
+			9: "updatePlayerValue",
+			ch: "receiveChat",
+			14: "updateItemCounts",
+			15: "updateAge",
+			16: "updateUpgrades",
+			17: "updateItems",
+			st: "setPlayerTeam",
+			us: "updateStoreItems",
+			6: "loadGameObject",
+			11: "killPlayer",
+			12: "killObject",
+			13: "killObjects",
+			h: "updateHealth",
+			7: "gatherAnimation",
+			8: "wiggleGameObject",
+			sp: "shootTurret",
+			a: "loadAI",
+			aa: "animateAI",
+			18: "addProjectile",
+			19: "remProjectile",
+			t: "showText",
+			5: "updateLeaderboard",
+			p: "pingMap",
+			mm: "updateMinimap"
+		}
+	}
+	const customEvents = {
+		lockDir: "lockDir",
+		changeCanvasMouse: "changeCanvasMouse",
+		changeMouse: "changeMouse",
+		markMap: "markMap",
+		updateStore: "updateStore",
+		updateAlliance: "updateAlliance",
+		changeVisibility: "changeVisibility",
+		changeInputText: "changeInputText",
+		changeInputScroll: "changeInputScroll",
+		showItemInfo: "showItemInfo",
+		notificationName: "notificationName",
+		hoverChange: "hoverChange",
+		disconnectEvent: "disconnectEvent",
+		updatePosition: "updatePosition"
+	}
+
 	const events = {
-		1: setupGame,
-		2: addPlayer,
-		4: removePlayer,
-		33: updatePlayers,
-		9: updatePlayerValue,
-		ch: receiveChat,
-		14: updateItemCounts,
-		15: updateAge,
-		16: updateUpgrades,
-		17: updateItems,
-		st: setPlayerTeam,
-		us: updateStoreItems,
-		6: loadGameObject,
-		11: killPlayer,
-		12: killObject,
-		13: killObjects,
-		h: updateHealth,
-		7: gatherAnimation,
-		8: wiggleGameObject,
-		sp: shootTurret,
-		a: loadAI,
-		aa: animateAI,
-		18: addProjectile,
-		19: remProjectile,
-		t: showText,
-		5: updateLeaderboard,
-		lockDir: changeLockDir,
-		changeCanvasMouse: changeCanvasMouse,
-		changeMouse: changeMouse,
-		markMap: markMap,
-		p: pingMap,
-		mm: updateMinimap,
-		updateStore: updateStore,
-		updateAlliance: updateAlliance,
-		changeVisibility: changeVisibility,
-		changeInputText: changeInputText,
-		changeInputScroll: changeInputScroll,
-		showItemInfo: showItemInfo,
-		notificationName: notificationName,
-		hoverChange: hoverChange,
-		disconnectEvent: disconnectEvent,
-		updatePosition: updatePosition
+		setupGame,
+		addPlayer,
+		removePlayer,
+		updatePlayers,
+		updatePlayerValue,
+		receiveChat,
+		updateItemCounts,
+		updateAge,
+		updateUpgrades,
+		updateItems,
+		setPlayerTeam,
+		updateStoreItems,
+		loadGameObject,
+		killPlayer,
+		killObject,
+		killObjects,
+		updateHealth,
+		gatherAnimation,
+		wiggleGameObject,
+		shootTurret,
+		loadAI,
+		animateAI,
+		addProjectile,
+		remProjectile,
+		showText,
+		updateLeaderboard,
+		pingMap,
+		updateMinimap,
+		lockDir,
+		changeCanvasMouse,
+		changeMouse,
+		markMap,
+		updateStore,
+		updateAlliance,
+		changeVisibility,
+		changeInputText,
+		changeInputScroll,
+		showItemInfo,
+		notificationName,
+		hoverChange,
+		disconnectEvent,
+		updatePosition
 	}
 
 	let maxScreenWidth = 1920,
@@ -2716,11 +2798,12 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 			}
 
 			const { type, data } = element[1]
-			if (events[type] != null) {
-				if (type === "a" || type === "33") {
-					events[type](...data, element[0])
+			const code = customEvents[type] ? customEvents[type] : PACKETMANAGER[type]
+			if (events[code] != null) {
+				if (code === "loadAI" || code === "updatePlayers" || code === "killPlayer" || code === "receiveChat") {
+					events[code](...data, element[0])
 				} else {
-					events[type](...data)
+					events[code](...data)
 				}
 			}
 			tmpSTARTDATA.counter++
@@ -2847,7 +2930,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		}
 
 		// RENDER CHAT MESSAGES:
-		renderChatMessages(render)
+		renderChatMessages(render, time)
 
 		elementContext.textBaseline = "bottom"
 		if (inGame) {
@@ -2922,9 +3005,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 				if (element.GAMEBUTTON) renderGameButtons()
 			}
 		} else {
-			if (!disconnect && deathTime == null) {
-				deathTime = time
-			} else if ((disconnect || time - deathTime > config.deathFadeout) && render) {
+			if ((disconnect || time - deathTime > config.deathFadeout) && render) {
 				elementContext.fillStyle = "rgba(0, 0, 0, 0.5)"
 				elementContext.fillRect(0, 0, screenWidth, screenHeight)
 			}
@@ -3620,14 +3701,10 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		}
 	}
 
-	function renderChatMessages(render) {
+	function renderChatMessages(render, time) {
 		for (let i = 0; i < players.length; ++i) {
 			tmpObj = players[i]
-			if (tmpObj.visible && tmpObj.chatCountdown > 0) {
-				tmpObj.chatCountdown -= delta
-				if (tmpObj.chatCountdown <= 0) {
-					tmpObj.chatCountdown = 0
-				}
+			if (tmpObj.visible && time - tmpObj.chatTime < config.chatCountdown) {
 				if (render) {
 					gameContext.font = "32px Hammersmith One"
 					var tmpSize = gameContext.measureText(tmpObj.chatMessage)
@@ -3956,11 +4033,11 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		chatBoxContext.fillText(inputText.chatBox == "" ? "Enter Message" : inputText.chatBox, -chatBoxLeft, fontHeight[20])
 	}
 
-	// console.log("Setting Up...")
 	inGame = startData.inGame
 	disconnect = startData.disconnect
 	playerSID = startData.playerSID
-	lockDir = startData.lockDir
+	lockDirBool = startData.lockDir
+	lockDirMouse = { ...(startData.lockDirMouse || startData.canvasMouse) }
 	moofoll = startData.moofoll
 	camX = startData.camX
 	camY = startData.camY
@@ -4838,10 +4915,10 @@ exportContainer.hideTitle("dimension")
 exportContainer.addRange("Speed", 0.1, 2, exportDATA.SPEED, 0.1, (data) => {
 	exportDATA.SPEED = data
 })
-exportContainer.addDropDown("Quality", ["Ultra Low", "Very Low", "Lower", "Low", "Medium", "High", "Higher", "Very High", "Ultra High"])
+exportContainer.addDropDown("Quality", ["Worst", "Low", "Normal", "High", "Best"])
 const selectQualityElement = document.evaluate("//b[text()='Quality']", document, null, XPathResult.ANY_TYPE, null).iterateNext()
 	.parentElement.nextSibling
-selectQualityElement.options.selectedIndex = 4
+selectQualityElement.options.selectedIndex = 2
 selectQualityElement.addEventListener("input", (event) => {
 	exportDATA.QUALITY = event.target.value
 })
