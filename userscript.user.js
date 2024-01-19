@@ -5,25 +5,26 @@
 // @match        *://*.moomoo.io/*
 // @icon         https://moomoo.io/img/favicon.png?v=1
 // @require      https://cdnjs.cloudflare.com/ajax/libs/msgpack-lite/0.1.26/msgpack.min.js
-// @require		 https://greasyfork.org/scripts/478839-moomoo-io-packet-code/code/MooMooio%20Packet%20Code.js?version=1275938
+// @require      https://greasyfork.org/scripts/478839-moomoo-io-packet-code/code/MooMooio%20Packet%20Code.js?version=1275938
 // @run-at       document-start
 // @grant        unsafeWindow
 // @license      MIT
-// @version      0.8
+// @version      1.0
 // @namespace    https://greasyfork.org/users/999838
+// @downloadURL  https://github.com/kookywarrior/moomooio-recorder/raw/main/userscript.user.js
+// @updateURL    https://github.com/kookywarrior/moomooio-recorder/raw/main/userscript.user.js
 // ==/UserScript==
 
+const VERSION = 1
 const PORT = 6789
-const NEWPACKETCODE = {
+const PACKETMANAGER = {
 	SEND: {},
 	RECEIVE: {}
 }
-for (const key in OLDPACKETCODE.SEND) {
-	NEWPACKETCODE.SEND[OLDPACKETCODE.SEND[key]] = key
+for (const key in PACKETCODE.RECEIVE) {
+	PACKETMANAGER.RECEIVE[PACKETCODE.RECEIVE[key]] = key
 }
-for (const key in OLDPACKETCODE.RECEIVE) {
-	NEWPACKETCODE.RECEIVE[OLDPACKETCODE.RECEIVE[key]] = key
-}
+
 ;(() => {
 	unsafeWindow.recorder = true
 
@@ -864,7 +865,7 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 			return Math.atan2(y1 - y2, x1 - x2)
 		},
 		NewToOld: function (packetCode, type) {
-			return NEWPACKETCODE[type][packetCode]
+			return PACKETMANAGER[type][packetCode]
 		}
 	}
 
@@ -874,6 +875,10 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 	var playerSID = null
 	var camX, camY
 	var lockDir = false
+	var lockDirMouse = {
+		x: 0,
+		y: 0
+	}
 	var tmpLockDir = Symbol("lockDir")
 	Object.defineProperty(Object.prototype, "lockDir", {
 		get() {
@@ -883,7 +888,9 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 			this[tmpLockDir] = value
 			if (this.sid === playerSID) {
 				lockDir = value
-				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "lockDir", data: [lockDir] }])
+				lockDirMouse.x = canvasMouse.x
+				lockDirMouse.y = canvasMouse.y
+				unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type: "lockDir", data: [lockDir, lockDirMouse.x, lockDirMouse.y] }])
 			}
 		}
 	})
@@ -1593,41 +1600,43 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 				try {
 					let data = new Uint8Array(e.data)
 					const parsed = msgpack.decode(data)
-					const type = UTILS.NewToOld(parsed[0], "RECEIVE")
+					const type = parsed[0]
+					const code = PACKETMANAGER[type]
 					data = parsed[1]
 					const events = {
-						1: setupGame,
-						2: addPlayer,
-						4: removePlayer,
-						33: updatePlayers,
-						9: updatePlayerValue,
-						ch: receiveChat,
-						14: updateItemCounts,
-						15: updateAge,
-						16: updateUpgrades,
-						17: updateItems,
-						st: setPlayerTeam,
-						us: updateStoreItems,
-						6: loadGameObject,
-						11: killPlayer,
-						12: killObject,
-						13: killObjects,
-						h: updateHealth,
-						7: gatherAnimation,
-						8: wiggleGameObject,
-						sp: shootTurret,
-						a: loadAI,
-						aa: animateAI,
-						18: addProjectile,
-						19: remProjectile,
-						t: showText,
-						5: updateLeaderboard,
-						p: pingMap,
-						mm: updateMinimap
+						setupGame,
+						addPlayer,
+						removePlayer,
+						updatePlayers,
+						updatePlayerValue,
+						receiveChat,
+						updateItemCounts,
+						updateAge,
+						updateUpgrades,
+						updateItems,
+						setPlayerTeam,
+						updateStoreItems,
+						loadGameObject,
+						killPlayer,
+						killObject,
+						killObjects,
+						updateHealth,
+						gatherAnimation,
+						wiggleGameObject,
+						shootTurret,
+						loadAI,
+						animateAI,
+						addProjectile,
+						remProjectile,
+						showText,
+						updateLeaderboard,
+						pingMap,
+						updateMinimap
 					}
-					if (type != "io-init" && events[type] != null) {
+					
+					if (type != "io-init" && events[code] != null) {
 						unsafeWindow.sendToLocal("addData", [Date.now().toString(), { type, data }])
-						events[type].apply(undefined, data)
+						events[code].apply(undefined, data)
 					}
 				} catch (error) {}
 			})
@@ -2115,6 +2124,7 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 					camX,
 					camY,
 					lockDir,
+					lockDirMouse,
 					canvasMouse,
 					mouse,
 					minimapData,
@@ -2145,7 +2155,8 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 					projectiles: JSON.parse(JSON.stringify(projectiles)),
 					texts: JSON.parse(JSON.stringify(texts)),
 					mapPings: JSON.parse(JSON.stringify(mapPings))
-				}
+				},
+				VERSION
 			])
 			lastCanvasMouse = canvasMouse
 			lastMouse = mouse
@@ -2161,6 +2172,7 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 							camX,
 							camY,
 							lockDir,
+							lockDirMouse,
 							canvasMouse,
 							mouse,
 							minimapData,
@@ -2198,8 +2210,25 @@ for (const key in OLDPACKETCODE.RECEIVE) {
 				}, 60 * 1000 * 2)
 			}
 		}
-		ws.onclose = () => {
+		ws.onclose = (event) => {
 			websocketReady = false
+			if (event.reason === "diffVersion") {
+				console.error("The server version and userscript version does not match. Please update either of them.")
+				errorCountdown = true
+				markerCountdown = false
+				recordButton.innerHTML = `<i class="material-icons" style="font-size:40px;vertical-align:middle">&#xe000;</i>`
+				recordButton.style.color = "red"
+				setTimeout(() => {
+					if (!errorCountdown) return
+					if (!websocketReady) {
+						recordButton.innerHTML = `<i class="material-icons" style="font-size:40px;vertical-align:middle">&#xe837;</i>`
+						recordButton.style.color = null
+					} else {
+						recordButton.innerHTML = `<i class="material-icons" style="font-size:40px;vertical-align:middle">&#xe047;</i>`
+						recordButton.style.color = "red"
+					}
+				}, 3000)
+			}
 			if (!errorCountdown && !markerCountdown) {
 				recordButton.innerHTML = `<i class="material-icons" style="font-size:40px;vertical-align:middle">&#xe837;</i>`
 				recordButton.style.color = null
