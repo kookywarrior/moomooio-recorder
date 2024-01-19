@@ -1,3 +1,4 @@
+const VERSION = 1
 const PORT = 6789
 const WebSocket = require("ws")
 const fs = require("fs")
@@ -5,8 +6,9 @@ const path = require("path")
 const { loadImage, registerFont, createCanvas } = require("canvas")
 
 const ffmpegStatic = require("ffmpeg-static")
-const ffmpeg = require("fluent-ffmpeg")
+const progressStream = require("ffmpeg-progress-stream")
 const express = require("express")
+const { spawn } = require("child_process")
 
 registerFont(path.join(__dirname, "render", "HammersmithOne.ttf"), { family: "Hammersmith One" })
 
@@ -1364,25 +1366,19 @@ const UTILS = {
 }
 
 async function startRender(resolution, frameRate, speed, renderFrame, renderStart, renderEnd, dataFileName, outputName, element, ws, quality) {
-	if (fs.existsSync(path.join(__dirname, "tmp", outputName))) {
-		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
-	}
-	await fs.promises.mkdir(path.join(__dirname, "tmp", outputName), { recursive: true })
 	if (!fs.existsSync(path.join(__dirname, "output"))) {
 		await fs.promises.mkdir(path.join(__dirname, "output"), { recursive: true })
 	}
 	if (!fs.existsSync(path.join(__dirname, "record", dataFileName))) {
 		ws.send(JSON.stringify({ packet: "error", data: "Data file not found" }))
 		ws.close()
-		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 	if (ws.readyState !== 1) {
-		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 	const DATA = require(path.join(__dirname, "record", `${dataFileName}`))
-	const { duration, count, screenWidth, screenHeight, breaks } = DATA.info
+	const { duration, count, screenWidth, screenHeight, breaks, version } = DATA.info
 	const randomAngle = DATA.info.randomAngle || [
 		UTILS.randFloat(0, Math.PI),
 		UTILS.randFloat(0, Math.PI),
@@ -1437,8 +1433,8 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 	var players = []
 	var player = null
 	var playerSID = null
-	var lockDir = false
-	var canvasMouse, mouse
+	var lockDirBool = false
+	var lockDirMouse, canvasMouse, mouse
 	var moofoll = false
 	class Player {
 		constructor(id, sid, assign) {
@@ -1478,7 +1474,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 			updateUpgrades(0)
 		}
 		spawn(data) {
-			this.chatCountdown = 0
+			this.chatTime = 0
 			this.animTime = 0
 			this.animSpeed = 0
 			this.buildIndex = -1
@@ -2068,11 +2064,11 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 	}
 
 	var deathTextScale = 99999
-	var deathTime = null
-	function killPlayer() {
+	var deathTime
+	function killPlayer(time) {
 		deathTextScale = 0
 		inGame = false
-		deathTime = null
+		deathTime = time
 		player.lastDeath = {
 			x: player.x,
 			y: player.y
@@ -2108,11 +2104,11 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		}
 	}
 
-	function receiveChat(sid, message) {
+	function receiveChat(sid, message, time) {
 		var tmpPlayer = findPlayerBySID(sid)
 		if (tmpPlayer) {
 			tmpPlayer.chatMessage = message
-			tmpPlayer.chatCountdown = 3000
+			tmpPlayer.chatTime = time
 		}
 	}
 
@@ -2311,8 +2307,12 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		leaderboardData = data
 	}
 
-	function changeLockDir(lock) {
-		lockDir = lock
+	function lockDir(lock, x, y) {
+		lockDirBool = lock
+		lockDirMouse = {
+			x: x,
+			y: y
+		}
 	}
 
 	function changeCanvasMouse(type, value) {
@@ -2323,16 +2323,13 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		mouse[type] = value
 	}
 
-	var lastDir
 	function getAttackDir() {
 		let returnValue
 		if (!player) {
 			returnValue = 0
 		} else {
-			if (!lockDir) {
-				lastDir = Math.atan2(canvasMouse.y - screenHeight / 2, canvasMouse.x - screenWidth / 2)
-			}
-			returnValue = UTILS.fixTo(lastDir || 0, 2)
+			const tmpMouse = lockDirBool ? lockDirMouse : canvasMouse
+			returnValue = UTILS.fixTo(Math.atan2(tmpMouse.y - screenHeight / 2, tmpMouse.x - screenWidth / 2) || 0, 2)
 		}
 		return returnValue
 	}
@@ -2432,49 +2429,130 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		disconnect = true
 	}
 
+	var PACKETMANAGER
+	if (version === 1) {
+		PACKETMANAGER = {
+			3: "setPlayerTeam",
+			5: "updateStoreItems",
+			6: "receiveChat",
+			7: "updateMinimap",
+			8: "showText",
+			9: "pingMap",
+			C: "setupGame",
+			D: "addPlayer",
+			E: "removePlayer",
+			a: "updatePlayers",
+			G: "updateLeaderboard",
+			H: "loadGameObject",
+			I: "loadAI",
+			J: "animateAI",
+			K: "gatherAnimation",
+			L: "wiggleGameObject",
+			M: "shootTurret",
+			N: "updatePlayerValue",
+			O: "updateHealth",
+			P: "killPlayer",
+			Q: "killObject",
+			R: "killObjects",
+			S: "updateItemCounts",
+			T: "updateAge",
+			U: "updateUpgrades",
+			V: "updateItems",
+			X: "addProjectile",
+			Y: "remProjectile",
+		}
+	} else {
+		PACKETMANAGER = {
+			1: "setupGame",
+			2: "addPlayer",
+			4: "removePlayer",
+			33: "updatePlayers",
+			9: "updatePlayerValue",
+			ch: "receiveChat",
+			14: "updateItemCounts",
+			15: "updateAge",
+			16: "updateUpgrades",
+			17: "updateItems",
+			st: "setPlayerTeam",
+			us: "updateStoreItems",
+			6: "loadGameObject",
+			11: "killPlayer",
+			12: "killObject",
+			13: "killObjects",
+			h: "updateHealth",
+			7: "gatherAnimation",
+			8: "wiggleGameObject",
+			sp: "shootTurret",
+			a: "loadAI",
+			aa: "animateAI",
+			18: "addProjectile",
+			19: "remProjectile",
+			t: "showText",
+			5: "updateLeaderboard",
+			p: "pingMap",
+			mm: "updateMinimap"
+		}
+	}
+	const customEvents = {
+		lockDir: "lockDir",
+		changeCanvasMouse: "changeCanvasMouse",
+		changeMouse: "changeMouse",
+		markMap: "markMap",
+		updateStore: "updateStore",
+		updateAlliance: "updateAlliance",
+		changeVisibility: "changeVisibility",
+		changeInputText: "changeInputText",
+		changeInputScroll: "changeInputScroll",
+		showItemInfo: "showItemInfo",
+		notificationName: "notificationName",
+		hoverChange: "hoverChange",
+		disconnectEvent: "disconnectEvent",
+		updatePosition: "updatePosition"
+	}
+
 	const events = {
-		1: setupGame,
-		2: addPlayer,
-		4: removePlayer,
-		33: updatePlayers,
-		9: updatePlayerValue,
-		ch: receiveChat,
-		14: updateItemCounts,
-		15: updateAge,
-		16: updateUpgrades,
-		17: updateItems,
-		st: setPlayerTeam,
-		us: updateStoreItems,
-		6: loadGameObject,
-		11: killPlayer,
-		12: killObject,
-		13: killObjects,
-		h: updateHealth,
-		7: gatherAnimation,
-		8: wiggleGameObject,
-		sp: shootTurret,
-		a: loadAI,
-		aa: animateAI,
-		18: addProjectile,
-		19: remProjectile,
-		t: showText,
-		5: updateLeaderboard,
-		lockDir: changeLockDir,
-		changeCanvasMouse: changeCanvasMouse,
-		changeMouse: changeMouse,
-		markMap: markMap,
-		p: pingMap,
-		mm: updateMinimap,
-		updateStore: updateStore,
-		updateAlliance: updateAlliance,
-		changeVisibility: changeVisibility,
-		changeInputText: changeInputText,
-		changeInputScroll: changeInputScroll,
-		showItemInfo: showItemInfo,
-		notificationName: notificationName,
-		hoverChange: hoverChange,
-		disconnectEvent: disconnectEvent,
-		updatePosition: updatePosition
+		setupGame,
+		addPlayer,
+		removePlayer,
+		updatePlayers,
+		updatePlayerValue,
+		receiveChat,
+		updateItemCounts,
+		updateAge,
+		updateUpgrades,
+		updateItems,
+		setPlayerTeam,
+		updateStoreItems,
+		loadGameObject,
+		killPlayer,
+		killObject,
+		killObjects,
+		updateHealth,
+		gatherAnimation,
+		wiggleGameObject,
+		shootTurret,
+		loadAI,
+		animateAI,
+		addProjectile,
+		remProjectile,
+		showText,
+		updateLeaderboard,
+		pingMap,
+		updateMinimap,
+		lockDir,
+		changeCanvasMouse,
+		changeMouse,
+		markMap,
+		updateStore,
+		updateAlliance,
+		changeVisibility,
+		changeInputText,
+		changeInputScroll,
+		showItemInfo,
+		notificationName,
+		hoverChange,
+		disconnectEvent,
+		updatePosition
 	}
 
 	var gameCanvas, gameContext
@@ -2536,11 +2614,12 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 			}
 
 			const { type, data } = element[1]
-			if (events[type] != null) {
-				if (type === "a" || type === "33") {
-					events[type](...data, element[0])
+			const code = customEvents[type] ? customEvents[type] : PACKETMANAGER[type]
+			if (events[code] != null) {
+				if (code === "loadAI" || code === "updatePlayers" || code === "killPlayer" || code === "receiveChat") {
+					events[code](...data, element[0])
 				} else {
-					events[type](...data)
+					events[code](...data)
 				}
 			}
 			tmpSTARTDATA.counter++
@@ -2667,7 +2746,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		}
 
 		// RENDER CHAT MESSAGES:
-		renderChatMessages(render)
+		renderChatMessages(render, time)
 
 		elementContext.textBaseline = "bottom"
 		if (inGame) {
@@ -2742,9 +2821,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 				if (element.GAMEBUTTON) renderGameButtons()
 			}
 		} else {
-			if (!disconnect && deathTime == null) {
-				deathTime = time
-			} else if ((disconnect || time - deathTime > config.deathFadeout) && render) {
+			if ((disconnect || time - deathTime > config.deathFadeout) && render) {
 				elementContext.fillStyle = "rgba(0, 0, 0, 0.5)"
 				elementContext.fillRect(0, 0, screenWidth, screenHeight)
 			}
@@ -3771,14 +3848,10 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		}
 	}
 
-	function renderChatMessages(render) {
+	function renderChatMessages(render, time) {
 		for (let i = 0; i < players.length; ++i) {
 			tmpObj = players[i]
-			if (tmpObj.visible && tmpObj.chatCountdown > 0) {
-				tmpObj.chatCountdown -= delta
-				if (tmpObj.chatCountdown <= 0) {
-					tmpObj.chatCountdown = 0
-				}
+			if (tmpObj.visible && time - tmpObj.chatTime < config.chatCountdown) {
 				if (render) {
 					gameContext.font = "32px Hammersmith One"
 					var tmpSize = gameContext.measureText(tmpObj.chatMessage)
@@ -4250,17 +4323,15 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		}
 	}
 	if (ws.readyState !== 1) {
-		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
-	// console.log("Preloading Images...")
 	await preloadImages()
 
-	// console.log("Setting Up...")
 	inGame = startData.inGame
 	disconnect = startData.disconnect
 	playerSID = startData.playerSID
-	lockDir = startData.lockDir
+	lockDirBool = startData.lockDir
+	lockDirMouse = { ...(startData.lockDirMouse || startData.canvasMouse) }
 	moofoll = startData.moofoll
 	camX = startData.camX
 	camY = startData.camY
@@ -4405,12 +4476,10 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 	if (frameCount <= 0) {
 		ws.send(JSON.stringify({ packet: "error", data: "Video length too short!" }))
 		ws.close()
-		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 
 	if (ws.readyState !== 1) {
-		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 
@@ -4423,7 +4492,9 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		}
 		updateGame(renderFrame, true)
 		ws.send(JSON.stringify({ packet: "rendering", data: 100 }))
-		await fs.promises.writeFile(path.join(__dirname, "output", `${outputName}_${Date.now()}.png`), mainCanvas.toBuffer("image/png"))
+		await fs.promises.writeFile(path.join(__dirname, "output", `${outputName}_${Date.now()}.jpeg`), mainCanvas.toBuffer("image/jpeg"))
+		ws.close()
+		return
 	}
 
 	if (renderStart != null) {
@@ -4433,10 +4504,40 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 				updateGame(num, false)
 			}
 		}
+
+		const qualityCheck = {
+			Worst: [36, "ultrafast"],
+			Low: [32, "fast"],
+			Normal: [28, "medium"],
+			High: [23, "slow"],
+			Best: [18, "veryslow"]
+		}
+		let ffmpeg = spawn(ffmpegStatic, [
+			"-y", // overwrite output without asking
+			"-f", // force input file format
+			"image2pipe", // force input file format
+			"-r", // frame rate
+			`${frameRate}`, // frame rate
+			"-i", // input
+			"-", // input
+			"-an", // set no sound video
+			"-vcodec", // set video codec
+			"libx264", // set video codec
+			"-crf", // set constant rate factor
+			`${qualityCheck[quality][0]}`, // set constant rate factor
+			"-preset", // set encoding speed
+			`${qualityCheck[quality][1]}`, // set encoding speed
+			"-s", // set dimension
+			`${Math.floor(canvasWidth)}x${Math.floor(canvasHeight)}`, // set dimension
+			path.join(__dirname, "output", `${outputName}.mp4`) // output
+		])
+
 		let millisecTime = renderStart
-		let i2 = 1
+		let i2 = 0
 		while (renderEnd > millisecTime) {
 			if (ws.readyState !== 1) {
+				ffmpeg.kill("SIGINT")
+				ffmpeg = null
 				break
 			}
 			updateGame(Math.floor(millisecTime), true)
@@ -4446,72 +4547,42 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 					data: ((millisecTime - renderStart) / (renderEnd - renderStart)) * 100
 				})
 			)
-			await fs.promises.writeFile(path.join(__dirname, "tmp", outputName, `frame-${i2}.png`), mainCanvas.toBuffer("image/png"))
+
+			await ffmpeg.stdin.write(mainCanvas.toBuffer("image/jpeg"))
 			i2++
 			millisecTime += (1000 / frameRate) * speed
 		}
-	}
-
-	if (ws.readyState !== 1) {
-		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
-		return
-	}
-	ws.send(JSON.stringify({ packet: "rendering", data: 100 }))
-
-	if (renderStart != null) {
-		var totalTime,
-			lastProgressTime = -1
-		const qualityCheck = {
-			"Ultra Low": [50, "ultrafast"],
-			"Very Low": [40, "ultrafast"],
-			Lower: [32, "superfast"],
-			Low: [27, "superfast"],
-			Medium: [22, "veryfast"],
-			High: [17, "faster"],
-			Higher: [12, "medium"],
-			"Very High": [7, "slow"],
-			"Ultra High": [3, "veryslow"]
+		if (ffmpeg) {
+			ws.send(
+				JSON.stringify({
+					packet: "rendering",
+					data: 100
+				})
+			)
+			ffmpeg.stdin.end()
+			ffmpeg.stderr.pipe(progressStream(i2)).on("data", (data) => {
+				ws.send(
+					JSON.stringify({
+						packet: "converting",
+						data: data.progress
+					})
+				)
+			})
+			ffmpeg.on("error", (error) => {
+				console.log(`Error: ${error}`)
+				ws.close()
+			})
+			ffmpeg.on("close", () => {
+				ws.send(
+					JSON.stringify({
+						packet: "converting",
+						data: 100
+					})
+				)
+				ws.close()
+			})
 		}
-		ffmpeg.setFfmpegPath(ffmpegStatic)
-		await new Promise((resolve, reject) => {
-			ffmpeg()
-				.input(path.join(__dirname, "tmp", outputName, `frame-%d.png`))
-				.inputOptions([`-framerate ${frameRate}`])
-
-				.videoCodec("libx264")
-				.outputOptions(["-pix_fmt yuv420p", `-crf ${qualityCheck[quality][0]}`, `-preset ${qualityCheck[quality][1]}`])
-
-				.fps(frameRate)
-				.size(`${Math.floor(canvasWidth)}x${Math.floor(canvasHeight)}`)
-
-				.saveToFile(path.join(__dirname, "output", `${outputName}.mp4`))
-				.on("codecData", (data) => {
-					totalTime = parseInt(data.duration.replace(/:/g, ""))
-				})
-				.on("progress", (progress) => {
-					const time = parseInt(progress.timemark.replace(/:/g, ""))
-					if (lastProgressTime !== time) {
-						lastProgressTime = time
-						// console.log(`Converting Images => Video | ${Math.round((time / totalTime) * 100)}%`)
-						if (ws.readyState !== 1) {
-							reject()
-						}
-						ws.send(JSON.stringify({ packet: "converting", data: Math.round((time / totalTime) * 100) }))
-					}
-				})
-				.on("end", () => {
-					resolve()
-				})
-				.on("error", async (error) => {
-					console.log(error)
-					ws.send(JSON.stringify({ packet: "error", data: error }))
-					reject()
-				})
-		})
 	}
-
-	ws.close()
-	await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 }
 
 const server = new WebSocket.Server({ port: PORT })
@@ -4559,6 +4630,11 @@ server.on("connection", async (conn) => {
 			conn.send(JSON.stringify({ packet: "start", data: null }))
 			startRender(data[0].RESOLUTION, data[0].FPS, data[0].SPEED, null, data[1], data[2], data[3], data[4], data[5], conn, data[0].QUALITY)
 		} else if (packet === "recordStart") {
+			if (data[5] !== VERSION) {
+				conn.close(1011, "diffVersion")
+				console.error("The server version and userscript version does not match. Please update either of them.")
+				return
+			}
 			RECORDER.date[sid] = data[0]
 			RECORDER.lastDate[sid] = RECORDER.date[sid]
 			RECORDER.start[sid] = true
@@ -4614,7 +4690,8 @@ server.on("connection", async (conn) => {
 				breaks: RECORDER.breaks[sid],
 				screenWidth: RECORDER.screenWidth[sid],
 				screenHeight: RECORDER.screenHeight[sid],
-				randomAngle: RECORDER.randomAngle[sid]
+				randomAngle: RECORDER.randomAngle[sid],
+				version: VERSION
 			}
 			fs.appendFileSync(path.join(__dirname, "record", `Recording_${RECORDER.date[sid]}.json`), `},"info":${JSON.stringify(data)}}`)
 			delete RECORDER.start[sid]
