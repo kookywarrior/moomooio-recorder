@@ -5,6 +5,7 @@ body {
 	height: 100%;
 	font-family: "Hammersmith One";
 	background-color: rgb(30, 30, 30);
+	-webkit-user-select: none;
 	user-select: none;
 	font-size: large;
 	color: white;
