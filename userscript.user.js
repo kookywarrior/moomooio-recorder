@@ -863,9 +863,6 @@ for (const key in PACKETCODE.RECEIVE) {
 		},
 		getDirection: function (x1, y1, x2, y2) {
 			return Math.atan2(y1 - y2, x1 - x2)
-		},
-		NewToOld: function (packetCode, type) {
-			return PACKETMANAGER[type][packetCode]
 		}
 	}
 
@@ -1601,7 +1598,7 @@ for (const key in PACKETCODE.RECEIVE) {
 					let data = new Uint8Array(e.data)
 					const parsed = msgpack.decode(data)
 					const type = parsed[0]
-					const code = PACKETMANAGER[type]
+					const code = PACKETMANAGER.RECEIVE[type]
 					data = parsed[1]
 					const events = {
 						setupGame,
