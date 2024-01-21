@@ -6,9 +6,8 @@ const path = require("path")
 const { loadImage, registerFont, createCanvas } = require("canvas")
 
 const ffmpegStatic = require("ffmpeg-static")
-const progressStream = require("ffmpeg-progress-stream")
+const ffmpeg = require("fluent-ffmpeg")
 const express = require("express")
-const { spawn } = require("child_process")
 
 registerFont(path.join(__dirname, "render", "HammersmithOne.ttf"), { family: "Hammersmith One" })
 
@@ -1366,15 +1365,21 @@ const UTILS = {
 }
 
 async function startRender(resolution, frameRate, speed, renderFrame, renderStart, renderEnd, dataFileName, outputName, element, ws, quality) {
+	if (fs.existsSync(path.join(__dirname, "tmp", outputName))) {
+		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
+	}
+	await fs.promises.mkdir(path.join(__dirname, "tmp", outputName), { recursive: true })
 	if (!fs.existsSync(path.join(__dirname, "output"))) {
 		await fs.promises.mkdir(path.join(__dirname, "output"), { recursive: true })
 	}
 	if (!fs.existsSync(path.join(__dirname, "record", dataFileName))) {
 		ws.send(JSON.stringify({ packet: "error", data: "Data file not found" }))
 		ws.close()
+		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 	if (ws.readyState !== 1) {
+		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 	const DATA = require(path.join(__dirname, "record", `${dataFileName}`))
@@ -2459,7 +2464,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 			U: "updateUpgrades",
 			V: "updateItems",
 			X: "addProjectile",
-			Y: "remProjectile",
+			Y: "remProjectile"
 		}
 	} else {
 		PACKETMANAGER = {
@@ -4323,6 +4328,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		}
 	}
 	if (ws.readyState !== 1) {
+		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 	await preloadImages()
@@ -4476,10 +4482,12 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 	if (frameCount <= 0) {
 		ws.send(JSON.stringify({ packet: "error", data: "Video length too short!" }))
 		ws.close()
+		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 
 	if (ws.readyState !== 1) {
+		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 		return
 	}
 
@@ -4493,8 +4501,6 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		updateGame(renderFrame, true)
 		ws.send(JSON.stringify({ packet: "rendering", data: 100 }))
 		await fs.promises.writeFile(path.join(__dirname, "output", `${outputName}_${Date.now()}.jpeg`), mainCanvas.toBuffer("image/jpeg"))
-		ws.close()
-		return
 	}
 
 	if (renderStart != null) {
@@ -4504,40 +4510,11 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 				updateGame(num, false)
 			}
 		}
-
-		const qualityCheck = {
-			Worst: [36, "ultrafast"],
-			Low: [32, "fast"],
-			Normal: [28, "medium"],
-			High: [23, "slow"],
-			Best: [18, "veryslow"]
-		}
-		let ffmpeg = spawn(ffmpegStatic, [
-			"-y", // overwrite output without asking
-			"-f", // force input file format
-			"image2pipe", // force input file format
-			"-r", // frame rate
-			`${frameRate}`, // frame rate
-			"-i", // input
-			"-", // input
-			"-an", // set no sound video
-			"-vcodec", // set video codec
-			"libx264", // set video codec
-			"-crf", // set constant rate factor
-			`${qualityCheck[quality][0]}`, // set constant rate factor
-			"-preset", // set encoding speed
-			`${qualityCheck[quality][1]}`, // set encoding speed
-			"-s", // set dimension
-			`${Math.floor(canvasWidth)}x${Math.floor(canvasHeight)}`, // set dimension
-			path.join(__dirname, "output", `${outputName}.mp4`) // output
-		])
-
 		let millisecTime = renderStart
 		let i2 = 0
+
 		while (renderEnd > millisecTime) {
 			if (ws.readyState !== 1) {
-				ffmpeg.kill("SIGINT")
-				ffmpeg = null
 				break
 			}
 			updateGame(Math.floor(millisecTime), true)
@@ -4547,42 +4524,67 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 					data: ((millisecTime - renderStart) / (renderEnd - renderStart)) * 100
 				})
 			)
-
-			await ffmpeg.stdin.write(mainCanvas.toBuffer("image/jpeg"))
+			await fs.promises.writeFile(path.join(__dirname, "tmp", outputName, `frame-${i2}.jpeg`), mainCanvas.toBuffer("image/jpeg"))
 			i2++
 			millisecTime += (1000 / frameRate) * speed
 		}
-		if (ffmpeg) {
-			ws.send(
-				JSON.stringify({
-					packet: "rendering",
-					data: 100
-				})
-			)
-			ffmpeg.stdin.end()
-			ffmpeg.stderr.pipe(progressStream(i2)).on("data", (data) => {
-				ws.send(
-					JSON.stringify({
-						packet: "converting",
-						data: data.progress
-					})
-				)
-			})
-			ffmpeg.on("error", (error) => {
-				console.log(`Error: ${error}`)
-				ws.close()
-			})
-			ffmpeg.on("close", () => {
-				ws.send(
-					JSON.stringify({
-						packet: "converting",
-						data: 100
-					})
-				)
-				ws.close()
-			})
-		}
 	}
+
+	if (ws.readyState !== 1) {
+		await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
+		return
+	}
+	ws.send(JSON.stringify({ packet: "rendering", data: 100 }))
+
+	if (renderStart != null) {
+		var totalTime,
+			lastProgressTime = -1
+		const qualityCheck = {
+			Worst: "fast",
+			Low: "medium",
+			Normal: "slow",
+			High: "slower",
+			Best: "veryslow"
+		}
+		ffmpeg.setFfmpegPath(ffmpegStatic)
+		await new Promise((resolve, reject) => {
+			ffmpeg()
+				.input(path.join(__dirname, "tmp", outputName, `frame-%d.jpeg`))
+				.inputOptions([`-framerate ${frameRate}`])
+
+				.videoCodec("libx264")
+				.outputOptions(["-pix_fmt yuv420p", "-crf 17", `-preset ${qualityCheck[quality]}`])
+
+				.fps(frameRate)
+				.size(`${Math.floor(canvasWidth)}x${Math.floor(canvasHeight)}`)
+
+				.saveToFile(path.join(__dirname, "output", `${outputName}.mp4`))
+				.on("codecData", (data) => {
+					totalTime = parseInt(data.duration.replace(/:/g, ""))
+				})
+				.on("progress", (progress) => {
+					const time = parseInt(progress.timemark.replace(/:/g, ""))
+					if (lastProgressTime !== time) {
+						lastProgressTime = time
+						if (ws.readyState !== 1) {
+							reject()
+						}
+						ws.send(JSON.stringify({ packet: "converting", data: Math.round((time / totalTime) * 100) }))
+					}
+				})
+				.on("end", () => {
+					resolve()
+				})
+				.on("error", async (error) => {
+					console.log(error)
+					ws.send(JSON.stringify({ packet: "error", data: error }))
+					reject()
+				})
+		})
+	}
+
+	ws.close()
+	await fs.promises.rm(path.join(__dirname, "tmp", outputName), { recursive: true })
 }
 
 const server = new WebSocket.Server({ port: PORT })
