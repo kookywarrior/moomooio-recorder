@@ -2456,6 +2456,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 		for (var i = 0; i < projectiles.length; ++i) {
 			if (!projectiles[i].active) {
 				tmpProj = projectiles[i]
+				tmpProj.sid = sid
 				break
 			}
 		}
@@ -2472,7 +2473,7 @@ async function renderToCanvas(resolution, frameRate, renderFrame, renderStart, e
 	function remProjectile(sid, range) {
 		for (var i = 0; i < projectiles.length; ++i) {
 			if (projectiles[i].sid == sid) {
-				projectiles.splice(i--, 1)
+				projectiles[i].range = range
 			}
 		}
 	}
