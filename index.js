@@ -2268,6 +2268,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 		for (var i = 0; i < projectiles.length; ++i) {
 			if (!projectiles[i].active) {
 				tmpProj = projectiles[i]
+				tmpProj.sid = sid
 				break
 			}
 		}
@@ -2284,7 +2285,7 @@ async function startRender(resolution, frameRate, speed, renderFrame, renderStar
 	function remProjectile(sid, range) {
 		for (var i = 0; i < projectiles.length; ++i) {
 			if (projectiles[i].sid == sid) {
-				projectiles.splice(i--, 1)
+				projectiles[i].range = range
 			}
 		}
 	}
