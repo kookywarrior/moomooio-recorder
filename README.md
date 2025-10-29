@@ -26,5 +26,8 @@ Record your gameplay without a recording software!
 2. Select the range you want in the timeline
 3. Export video/image.
 
+## Demo
+![Demo](./assets/all.gif)
+
 ## Reference
 - https://moomoo.io/assets/index-ffd48cb5.js
